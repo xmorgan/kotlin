@@ -144,6 +144,7 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(JVMConfigurationKeys.IR, arguments.useIR && !arguments.noUseIR)
     put(JVMConfigurationKeys.IS_IR_WITH_STABLE_ABI, arguments.isIrWithStableAbi)
+    put(JVMConfigurationKeys.DUMP_MEMORY_SNAPSHOT_BEFORE_CODEGEN, arguments.dumpMemorySnapshotBeforeCodegen)
     put(JVMConfigurationKeys.DISABLE_CALL_ASSERTIONS, arguments.noCallAssertions)
     put(JVMConfigurationKeys.DISABLE_RECEIVER_ASSERTIONS, arguments.noReceiverAssertions)
     put(JVMConfigurationKeys.DISABLE_PARAM_ASSERTIONS, arguments.noParamAssertions)

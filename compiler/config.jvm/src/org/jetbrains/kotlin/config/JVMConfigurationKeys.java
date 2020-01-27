@@ -27,6 +27,9 @@ public class JVMConfigurationKeys {
     private JVMConfigurationKeys() {
     }
 
+    public static final CompilerConfigurationKey<Boolean> DUMP_MEMORY_SNAPSHOT_BEFORE_CODEGEN =
+            CompilerConfigurationKey.create("Dump memory snapshot before codegen");
+
     public static final CompilerConfigurationKey<File> OUTPUT_DIRECTORY =
             CompilerConfigurationKey.create("output directory");
     public static final CompilerConfigurationKey<File> OUTPUT_JAR =

@@ -118,6 +118,12 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     )
     var additionalJavaModules: Array<String>? by FreezableVar(null)
 
+    @Argument(
+        value = "-Xdump-memory-snapshot-before-codegen",
+        description = "Dump memory snapshot before codegen"
+    )
+    var dumpMemorySnapshotBeforeCodegen: Boolean by FreezableVar(false)
+
     @Argument(value = "-Xno-call-assertions", description = "Don't generate not-null assertions for arguments of platform types")
     var noCallAssertions: Boolean by FreezableVar(false)
 

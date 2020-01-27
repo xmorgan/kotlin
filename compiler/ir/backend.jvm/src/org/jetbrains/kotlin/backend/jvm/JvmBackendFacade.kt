@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen
 import org.jetbrains.kotlin.backend.jvm.lower.MultifileFacadeFileEntry
 import org.jetbrains.kotlin.backend.jvm.serialization.JvmIdSignatureDescriptor
 import org.jetbrains.kotlin.codegen.state.GenerationState
+import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.descriptors.konan.DeserializedKlibModuleOrigin
 import org.jetbrains.kotlin.descriptors.konan.KlibModuleOrigin
 import org.jetbrains.kotlin.idea.MainFunctionDetector
@@ -122,6 +123,18 @@ object JvmBackendFacade {
         }
 
         JvmLower(context).lower(irModuleFragment)
+
+        if (state.configuration.getBoolean(JVMConfigurationKeys.DUMP_MEMORY_SNAPSHOT_BEFORE_CODEGEN)) {
+            // java -agentpath:/Applications/YourKit-Java-Profiler-2019.8.app/Contents/Resources/bin/mac/libyjpagent.dylib \
+            //      -cp $HOME/kotlin/dist/kotlinc/lib/kotlin-compiler.jar:\
+            //          /Applications/YourKit-Java-Profiler-2019.8.app/Contents/Resources/lib/yjp-controller-api-redist.jar \
+            //      org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+            //      ...
+            val controller = Class.forName("com.yourkit.api.Controller").newInstance()
+            val captureMemorySnapshot = controller.javaClass.methods.single { it.name == "captureMemorySnapshot" && it.parameterCount == 0 }
+            val snapshotPath = captureMemorySnapshot(controller)
+            println("YourKit snapshot dumped to $snapshotPath")
+        }
 
         for (generateMultifileFacade in listOf(true, false)) {
             for (irFile in irModuleFragment.files) {
