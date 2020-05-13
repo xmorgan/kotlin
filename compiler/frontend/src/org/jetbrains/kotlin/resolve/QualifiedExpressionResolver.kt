@@ -20,6 +20,7 @@ import com.intellij.psi.impl.source.DummyHolder
 import com.intellij.util.SmartList
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.config.isLibraryToSourceAnalysisEnabled
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.incremental.KotlinLookupLocation
@@ -35,6 +36,7 @@ import org.jetbrains.kotlin.resolve.calls.CallExpressionElement
 import org.jetbrains.kotlin.resolve.calls.checkers.UnderscoreUsageChecker
 import org.jetbrains.kotlin.resolve.calls.unrollToLeftMostQualifiedExpression
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
+import org.jetbrains.kotlin.resolve.scopes.CompositePrioritizedImportingScope
 import org.jetbrains.kotlin.resolve.scopes.ImportingScope
 import org.jetbrains.kotlin.resolve.scopes.LexicalScope
 import org.jetbrains.kotlin.resolve.scopes.receivers.*
@@ -216,6 +218,38 @@ class QualifiedExpressionResolver(val languageVersionSettings: LanguageVersionSe
     }
 
     fun processImportReference(
+        importDirective: KtImportInfo,
+        moduleDescriptor: ModuleDescriptor,
+        trace: BindingTrace,
+        excludedImportNames: Collection<FqName>,
+        packageFragmentForVisibilityCheck: PackageFragmentDescriptor?
+    ): ImportingScope? {
+        val primaryImportingScope = processImportReferenceFromSingleModule(
+            importDirective,
+            moduleDescriptor,
+            trace,
+            excludedImportNames,
+            packageFragmentForVisibilityCheck
+        )
+
+        if (!languageVersionSettings.isLibraryToSourceAnalysisEnabled) return primaryImportingScope
+
+        val resolutionAnchor = moduleDescriptor.getResolutionAnchorIfAny() ?: return primaryImportingScope
+
+        val secondaryImportingScope = processImportReferenceFromSingleModule(
+            importDirective,
+            resolutionAnchor,
+            trace,
+            excludedImportNames,
+            packageFragmentForVisibilityCheck
+        ) ?: return primaryImportingScope
+
+        if (primaryImportingScope == null) return secondaryImportingScope
+
+        return CompositePrioritizedImportingScope(primaryImportingScope, secondaryImportingScope)
+    }
+
+    private fun processImportReferenceFromSingleModule(
         importDirective: KtImportInfo,
         moduleDescriptor: ModuleDescriptor,
         trace: BindingTrace,
