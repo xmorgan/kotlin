@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.idea.caches.project.*
 import org.jetbrains.kotlin.idea.project.libraryToSourceAnalysisEnabled
 import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus
 import org.jetbrains.kotlin.resolve.ResolutionAnchorProvider
+import java.util.concurrent.ConcurrentHashMap
 
 @State(name = "KotlinIdeAnchorService", storages = [Storage("anchors.xml")])
 class KotlinIdeResolutionAnchorService(
@@ -28,9 +29,9 @@ class KotlinIdeResolutionAnchorService(
     PersistentStateComponent<KotlinIdeResolutionAnchorService.State> {
 
     data class State(
-        var moduleNameToAnchorName: Map<String, String> = emptyMap()
+        var moduleNameToAnchorName: Map<String, String> = ConcurrentHashMap()
     )
-    
+
     private val logger = logger<KotlinIdeResolutionAnchorService>()
 
     @JvmField
@@ -52,7 +53,7 @@ class KotlinIdeResolutionAnchorService(
             module to anchor
         }.toMap()
     }
-    
+
     private fun notFoundModule(moduleName: String): Nothing? {
         logger.warn("Module <${moduleName}> not found in project model")
         return null
@@ -63,19 +64,17 @@ class KotlinIdeResolutionAnchorService(
             buildMapping()
         }
 
-    @Synchronized
     override fun getState(): State = myState
 
-    @Synchronized
     override fun loadState(state: State) {
         XmlSerializerUtil.copyBean(state, myState)
     }
 
-    @Synchronized
     override fun getResolutionAnchor(moduleDescriptor: ModuleDescriptor): ModuleDescriptor? {
         if (!project.libraryToSourceAnalysisEnabled) return null
         val moduleInfo = moduleDescriptor.moduleInfo ?: return null
-        val mapped = moduleToAnchor[moduleInfo] ?: return null
+        val anchorKey = if (moduleInfo is SourceForBinaryModuleInfo) moduleInfo.binariesModuleInfo else moduleInfo
+        val mapped = moduleToAnchor[anchorKey] ?: return null
         return KotlinCacheService.getInstance(project)
             .getResolutionFacadeByModuleInfo(mapped, mapped.platform)
             ?.moduleDescriptor
