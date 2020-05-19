@@ -109,10 +109,10 @@ abstract class ClassCodegen protected constructor(
     private var generatingClInit = false
     private var generated = false
 
-    fun generate(): ReifiedTypeParametersUsages {
+    fun generate() {
         // TODO: reject repeated generate() calls; currently, these can happen for objects in finally
         //       blocks since they are `accept`ed once per each CFG edge out of the try-finally.
-        if (generated) return reifiedTypeParametersUsages
+        if (generated) return
         generated = true
 
         val smap = context.getSourceMapper(irClass)
@@ -159,8 +159,6 @@ abstract class ClassCodegen protected constructor(
         jvmSignatureClashDetector.reportErrors(classOrigin)
 
         generateInnerClasses()
-
-        return reifiedTypeParametersUsages
     }
 
     fun generateAssertFieldIfNeeded(): IrExpression? {
@@ -196,8 +194,6 @@ abstract class ClassCodegen protected constructor(
         return null
     }
 
-    abstract protected fun generateKotlinMetadataAnnotation()
-
     private fun IrFile.loadSourceFilesInfo(): List<File> {
         val entry = fileEntry
         if (entry is MultifileFacadeFileEntry) {
@@ -221,12 +217,7 @@ abstract class ClassCodegen protected constructor(
                             "Old: ${it.parentFunction?.render()}"
                 }
             }
-
-        private fun JvmClassSignature.hasInvalidName() =
-            name.splitToSequence('/').any { identifier -> identifier.any { it in JvmSimpleNameBacktickChecker.INVALID_CHARS } }
     }
-
-    protected abstract fun bindFieldMetadata(field: IrField, fieldType: Type, fieldName: String)
 
     private fun generateField(field: IrField) {
         if (field.isFakeOverride) return
@@ -273,8 +264,6 @@ abstract class ClassCodegen protected constructor(
         node.accept(copy)
         return SMAPAndMethodNode(copy, smap)
     }
-
-    protected abstract fun bindMethodMetadata(method: IrFunction, signature: Method)
 
     private fun generateMethod(method: IrFunction, classSMAP: SourceMapper) {
         if (method.isFakeOverride) {
@@ -349,7 +338,16 @@ abstract class ClassCodegen protected constructor(
             visitor.visitInnerClass(typeMapper.classInternalName(innerClass), outer, inner, flags)
         }
     }
+
+    protected abstract fun generateKotlinMetadataAnnotation()
+
+    protected abstract fun bindFieldMetadata(field: IrField, fieldType: Type, fieldName: String)
+
+    protected abstract fun bindMethodMetadata(method: IrFunction, signature: Method)
 }
+
+private fun JvmClassSignature.hasInvalidName() =
+    name.splitToSequence('/').any { identifier -> identifier.any { it in JvmSimpleNameBacktickChecker.INVALID_CHARS } }
 
 private val IrClass.flags: Int
     get() = origin.flags or getVisibilityAccessFlagForClass() or deprecationFlags or when {
