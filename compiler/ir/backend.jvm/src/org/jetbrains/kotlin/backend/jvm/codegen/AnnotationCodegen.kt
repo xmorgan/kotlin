@@ -209,7 +209,7 @@ abstract class AnnotationCodegen(
         // See FileBasedKotlinClass.convertAnnotationVisitor
         generateSequence<IrDeclaration>(klass) { it.parent as? IrDeclaration }.takeWhile { !it.isTopLevelDeclaration }.forEach {
             if (it is IrClass) {
-                classCodegen.addInnerClass(it)
+                classCodegen.innerClasses.add(it)
             }
         }
     }
