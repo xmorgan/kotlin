@@ -46,6 +46,7 @@ import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOriginKind.*
 import org.jetbrains.kotlin.serialization.deserialization.DeserializationConfiguration
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.TypeApproximator
 import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.commons.Method
 import java.io.File
@@ -65,7 +66,8 @@ class GenerationState private constructor(
     private val onIndependentPartCompilationEnd: GenerationStateEventCallback,
     wantsDiagnostics: Boolean,
     val jvmBackendClassResolver: JvmBackendClassResolver,
-    val isIrBackend: Boolean
+    val isIrBackend: Boolean,
+    val typeApproximator: TypeApproximator?
 ) {
 
     class Builder(
@@ -116,12 +118,17 @@ class GenerationState private constructor(
         fun isIrBackend(v: Boolean) =
             apply { isIrBackend = v }
 
+        val approximator = if (configuration.languageVersionSettings.supportsFeature(LanguageFeature.NewInference))
+            TypeApproximator(module.builtIns)
+        else
+            null
+
         fun build() =
             GenerationState(
                 project, builderFactory, module, bindingContext, files, configuration,
                 generateDeclaredClassFilter, codegenFactory, targetId,
                 moduleName, outDirectory, onIndependentPartCompilationEnd, wantsDiagnostics,
-                jvmBackendClassResolver, isIrBackend
+                jvmBackendClassResolver, isIrBackend, approximator
             )
     }
 
