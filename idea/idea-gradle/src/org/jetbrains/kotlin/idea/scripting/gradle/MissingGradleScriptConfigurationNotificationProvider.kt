@@ -35,6 +35,7 @@ class MissingGradleScriptConfigurationNotificationProvider(private val project: 
             scriptUnderRoot.isUnrelatedScript -> EditorNotificationPanel().apply {
                 text(KotlinIdeaGradleBundle.message("text.the.associated.gradle.project.isn.t.imported"))
 
+
                 val linkProjectText = KotlinIdeaGradleBundle.message("action.label.text.load.script.configuration")
                 createActionLabel(linkProjectText) {
                     val newProjectSettings = GradleProjectSettings()
