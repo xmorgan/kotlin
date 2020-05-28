@@ -16,8 +16,7 @@ import org.jetbrains.kotlinx.atomicfu.compiler.extensions.AtomicfuComponentRegis
 import org.junit.Test
 import java.io.File
 
-private val atomicfuCompileLibraryPath = File("plugins/atomicfu/atomicfu-compiler/atomicfu-js-0.14.2-1.4-M1-jsir.klib")
-private val kotlinKlibPath = File("libraries/stdlib/js-ir/build/fullRuntime/klib")
+private val atomicfuCompileDependency = System.getProperty("atomicfu.classpath")
 
 abstract class AtomicfuBaseTest(relativePath: String) : BasicIrBoxTest(
     "plugins/atomicfu/atomicfu-compiler/testData/$relativePath",
@@ -26,8 +25,8 @@ abstract class AtomicfuBaseTest(relativePath: String) : BasicIrBoxTest(
     override fun createEnvironment(): KotlinCoreEnvironment {
         return super.createEnvironment().also { environment ->
             AtomicfuComponentRegistrar.registerExtensions(environment.project)
-            val libraries = listOf<String>(atomicfuCompileLibraryPath.absolutePath, kotlinKlibPath.path)
-            environment.configuration.put(JSConfigurationKeys.LIBRARIES, libraries)
+            val atomicfuDep = atomicfuCompileDependency.split(File.pathSeparator).filter { it.endsWith(".klib") }.single()
+            environment.configuration.put(JSConfigurationKeys.LIBRARIES, listOf(atomicfuDep))
             environment.configuration.put(JSConfigurationKeys.MODULE_KIND, ModuleKind.PLAIN)
         }
     }

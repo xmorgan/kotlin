@@ -1,7 +1,24 @@
+import org.jetbrains.kotlin.gradle.targets.js.KotlinJsCompilerAttribute
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.gradle.internal.os.OperatingSystem
+
 description = "Atomicfu Compiler Plugin"
 
 plugins {
     kotlin("jvm")
+}
+
+val atomicfuClasspath by configurations.creating {
+    attributes {
+        attribute(KotlinPlatformType.attribute, KotlinPlatformType.js)
+        attribute(KotlinJsCompilerAttribute.jsCompilerAttribute, KotlinJsCompilerAttribute.ir)
+    }
+}
+
+repositories {
+    //mavenLocal()
+    jcenter()
+    maven("https://dl.bintray.com/kotlin/kotlinx")
 }
 
 dependencies {
@@ -27,6 +44,25 @@ dependencies {
     testRuntime(project(":kotlin-preloader")) // it's required for ant tests
     testRuntime(project(":compiler:backend-common"))
     testRuntime(commonDep("org.fusesource.jansi", "jansi"))
+
+    atomicfuClasspath("org.jetbrains.kotlinx:atomicfu-js:0.14.3-1.4-M1")
+
+    val currentOs = OperatingSystem.current()
+    val j2v8idString = when {
+        currentOs.isWindows -> {
+            val suffix = if (currentOs.toString().endsWith("64")) "_64" else ""
+            "com.eclipsesource.j2v8:j2v8_win32_x86$suffix:4.6.0"
+        }
+        currentOs.isMacOsX -> "com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0"
+        currentOs.run { isLinux || isUnix } -> "com.eclipsesource.j2v8:j2v8_linux_x86_64:4.8.0"
+        else -> {
+            logger.error("unsupported platform $currentOs - can not compile com.eclipsesource.j2v8 dependency")
+            "j2v8:$currentOs"
+        }
+    }
+
+    testCompileOnly("com.eclipsesource.j2v8:j2v8_linux_x86_64:4.8.0")
+    testRuntimeOnly(j2v8idString)
 }
 
 sourceSets {
@@ -41,6 +77,7 @@ testsJar()
 
 projectTest(parallel = true) {
     workingDir = rootDir
+    setUpJsBoxTests(jsEnabled = true, jsIrEnabled = true)
 }
 
 apply(from = "$rootDir/gradle/kotlinPluginPublication.gradle.kts")
@@ -48,12 +85,16 @@ apply(from = "$rootDir/gradle/kotlinPluginPublication.gradle.kts")
 fun Test.setUpJsBoxTests(jsEnabled: Boolean, jsIrEnabled: Boolean) {
     dependsOn(":dist")
     if (jsIrEnabled) {
-        dependsOn(":kotlin-stdlib-js-ir:generateFullRuntimeKLib")
-        dependsOn(":kotlin-stdlib-js-ir:generateReducedRuntimeKLib")
-        dependsOn(":kotlin-stdlib-js-ir:generateKotlinTestKLib")
+        dependsOn(":kotlin-stdlib-js-ir:compileKotlinJs")
+        systemProperty("kotlin.js.full.stdlib.path", "libraries/stdlib/js-ir/build/classes/kotlin/js/main")
+        dependsOn(":kotlin-stdlib-js-ir-minimal-for-test:compileKotlinJs")
+        systemProperty("kotlin.js.reduced.stdlib.path", "libraries/stdlib/js-ir-minimal-for-test/build/classes/kotlin/js/main")
+        dependsOn(":kotlin-test:kotlin-test-js-ir:compileKotlinJs")
+        systemProperty("kotlin.js.kotlin.test.path", "libraries/kotlin.test/js-ir/build/classes/kotlin/js/main")
+        systemProperty("kotlin.js.kotlin.test.path", "libraries/kotlin.test/js-ir/build/classes/kotlin/js/main")
+        systemProperty("atomicfu.classpath", atomicfuClasspath.asPath)
     }
 }
 
 val generateTests by generator("org.jetbrains.kotlin.generators.tests.GenerateJsTestsKt")
 val testDataDir = project(":js:js.translator").projectDir.resolve("testData")
-

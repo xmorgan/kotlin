@@ -139,7 +139,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
             val matching = fileSequence
                 .filterOutPre_1_4_libraries()
                 .flatMap { libraryComponentBuilder(it, isDefaultLink).asSequence() }
-                .map { it.takeIf { libraryMatch(it, unresolved) } }
+                //.map { it.takeIf { libraryMatch(it, unresolved) } }
                 .filterNotNull()
 
             return matching.firstOrNull() ?: run {
