@@ -5,10 +5,7 @@
 
 package org.jetbrains.kotlin.idea.caches.lightClasses
 
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiField
-import com.intellij.psi.PsiMember
-import com.intellij.psi.PsiMethod
+import com.intellij.psi.*
 import com.intellij.psi.impl.compiled.SignatureParsing
 import com.intellij.util.cls.ClsFormatException
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
@@ -55,6 +52,22 @@ interface LightMemberOriginForCompiledElement<T : PsiMember> : LightMemberOrigin
     }
 
     override fun isValid(): Boolean = member.isValid
+}
+
+data class LightMemberOriginForCompiledClass(val element: KtClassOrObject?, val psiClass: PsiClass) : LightMemberOriginForCompiledElement<PsiClass> {
+    override val member: PsiClass
+        get() = psiClass
+
+    override fun copy(): LightMemberOrigin {
+        return LightMemberOriginForCompiledClass(element, psiClass.copy() as PsiClass)
+    }
+
+    override fun isEquivalentTo(other: LightMemberOrigin?): Boolean {
+        if (other !is LightMemberOriginForCompiledClass) return false
+        return psiClass.isEquivalentTo(other.psiClass)
+    }
+
+    override val originalElement: KtDeclaration? = element
 }
 
 
