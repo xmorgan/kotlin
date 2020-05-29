@@ -159,7 +159,8 @@ class DefaultScriptingSupport(manager: CompositeScriptConfigurationManager) : De
         isFirstLoad: Boolean,
         forceSync: Boolean,
         isPostponedLoad: Boolean,
-        fromCacheOnly: Boolean
+        fromCacheOnly: Boolean,
+        notification: OutdatedConfigurationNotification
     ): Boolean {
         val virtualFile = file.originalFile.virtualFile ?: return false
 
@@ -178,7 +179,7 @@ class DefaultScriptingSupport(manager: CompositeScriptConfigurationManager) : De
                     val postponeLoading = isPostponedLoad && !autoReloadEnabled
 
                     if (postponeLoading) {
-                        LoadScriptConfigurationNotificationFactory.showNotification(virtualFile, project) {
+                        LoadScriptConfigurationNotificationFactory.showNotification(virtualFile, project, notification) {
                             runAsyncLoaders(file, virtualFile, scriptDefinition, async, isLoadingPostponed = true)
                         }
                     } else {
@@ -381,7 +382,8 @@ abstract class DefaultScriptingSupportBase(val manager: CompositeScriptConfigura
         isFirstLoad: Boolean = getAppliedConfiguration(file.originalFile.virtualFile) == null,
         forceSync: Boolean = false,
         isPostponedLoad: Boolean = false,
-        fromCacheOnly: Boolean = false
+        fromCacheOnly: Boolean = false,
+        notification: OutdatedConfigurationNotification
     ): Boolean
 
     fun getCachedConfigurationState(file: VirtualFile?): ScriptConfigurationState? {
@@ -408,7 +410,7 @@ abstract class DefaultScriptingSupportBase(val manager: CompositeScriptConfigura
 
         val ktFile = project.getKtFile(virtualFile, preloadedKtFile) ?: return null
         manager.updater.update {
-            reloadOutOfDateConfiguration(ktFile, isFirstLoad = true)
+            reloadOutOfDateConfiguration(ktFile, isFirstLoad = true, notification = OutdatedConfigurationNotification())
         }
 
         return getAppliedConfiguration(virtualFile)?.configuration
@@ -424,11 +426,18 @@ abstract class DefaultScriptingSupportBase(val manager: CompositeScriptConfigura
     /**
      * Show notification about changed script configuration with action to start loading it
      */
-    fun suggestToUpdateConfigurationIfOutOfDate(file: KtFile) {
-        reloadIfOutOfDate(file, isPostponedLoad = true)
+    fun suggestToUpdateConfigurationIfOutOfDate(
+        file: KtFile,
+        notification: OutdatedConfigurationNotification = OutdatedConfigurationNotification()
+    ) {
+        reloadIfOutOfDate(file, isPostponedLoad = true, notification)
     }
 
-    private fun reloadIfOutOfDate(file: KtFile, isPostponedLoad: Boolean = false) {
+    private fun reloadIfOutOfDate(
+        file: KtFile,
+        isPostponedLoad: Boolean = false,
+        notification: OutdatedConfigurationNotification = OutdatedConfigurationNotification()
+    ) {
         if (!ScriptDefinitionsManager.getInstance(project).isReady()) return
 
         manager.updater.update {
@@ -439,7 +448,8 @@ abstract class DefaultScriptingSupportBase(val manager: CompositeScriptConfigura
                     reloadOutOfDateConfiguration(
                         file,
                         isFirstLoad = state == null,
-                        isPostponedLoad = isPostponedLoad
+                        isPostponedLoad = isPostponedLoad,
+                        notification = notification
                     )
                 }
             }
@@ -462,7 +472,8 @@ abstract class DefaultScriptingSupportBase(val manager: CompositeScriptConfigura
                         if (!reloadOutOfDateConfiguration(
                                 file,
                                 isFirstLoad = true,
-                                fromCacheOnly = true
+                                fromCacheOnly = true,
+                                notification = OutdatedConfigurationNotification()
                             )
                         ) {
                             allLoaded = false
@@ -507,7 +518,7 @@ abstract class DefaultScriptingSupportBase(val manager: CompositeScriptConfigura
         if (cache[virtualFile]?.isUpToDate(project, virtualFile, file) == true) return
 
         manager.updater.update {
-            reloadOutOfDateConfiguration(file, forceSync = true)
+            reloadOutOfDateConfiguration(file, forceSync = true, notification = OutdatedConfigurationNotification())
         }
     }
 
