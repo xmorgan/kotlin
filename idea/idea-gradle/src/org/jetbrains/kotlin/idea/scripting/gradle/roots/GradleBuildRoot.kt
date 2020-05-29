@@ -17,10 +17,6 @@ import org.jetbrains.kotlin.scripting.resolve.VirtualFileScriptSource
 import org.jetbrains.plugins.gradle.settings.GradleProjectSettings
 import java.io.File
 
-@set:TestOnly
-@get:TestOnly
-internal var skipLastModifiedFilesLoading = false
-
 /**
  * [GradleBuildRoot] is a linked gradle build (don't confuse with gradle project and included build).
  * Each [GradleBuildRoot] may have it's own Gradle version, Java home and other settings.

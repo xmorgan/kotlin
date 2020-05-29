@@ -11,10 +11,6 @@ import org.jetbrains.kotlin.idea.scripting.gradle.importing.KotlinDslScriptModel
 import kotlin.test.assertEquals
 
 open class AbstractGradleBuildRootsLocatorTest {
-    init {
-        skipLastModifiedFilesLoading = true
-    }
-
     private val scripts = mutableMapOf<String, GradleScriptInfo>()
     private val locator = MyRootsLocator()
 
