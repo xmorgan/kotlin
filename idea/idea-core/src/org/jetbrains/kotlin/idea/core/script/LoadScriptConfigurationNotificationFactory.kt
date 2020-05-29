@@ -14,13 +14,19 @@ import com.intellij.openapi.util.Ref
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.HyperlinkLabel
+import org.jetbrains.kotlin.idea.core.script.configuration.OutdatedConfigurationNotification
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.KotlinIdeaCoreBundle
 import org.jetbrains.kotlin.psi.UserDataProperty
 
 object LoadScriptConfigurationNotificationFactory {
-    fun showNotification(file: VirtualFile, project: Project, onClick: () -> Unit): Boolean {
-        file.addLoadConfigurationNotificationPanel(project, onClick)
+    fun showNotification(
+        file: VirtualFile,
+        project: Project,
+        notification: OutdatedConfigurationNotification = OutdatedConfigurationNotification(),
+        onClick: () -> Unit
+    ): Boolean {
+        file.addLoadConfigurationNotificationPanel(project, onClick, notification)
         return true
     }
 
@@ -41,7 +47,8 @@ object LoadScriptConfigurationNotificationFactory {
 
     private fun VirtualFile.addLoadConfigurationNotificationPanel(
         project: Project,
-        onClick: () -> Unit
+        onClick: () -> Unit,
+        notification: OutdatedConfigurationNotification
     ) {
         withSelectedEditor(project) { manager ->
             val existingPanel = notificationPanel
@@ -50,7 +57,7 @@ object LoadScriptConfigurationNotificationFactory {
                 return@withSelectedEditor
             }
 
-            val panel = NewLoadConfigurationNotificationPanel(onClick, project)
+            val panel = NewLoadConfigurationNotificationPanel(notification, onClick, project)
             notificationPanel = panel
             manager.addTopComponent(this, panel)
         }
@@ -71,17 +78,18 @@ object LoadScriptConfigurationNotificationFactory {
             by UserDataProperty<FileEditor, NewLoadConfigurationNotificationPanel>(Key.create("load.script.configuration.panel"))
 
     private class NewLoadConfigurationNotificationPanel(
+        val notification: OutdatedConfigurationNotification,
         var onClick: () -> Unit,
         project: Project
     ) : EditorNotificationPanel() {
 
         init {
-            setText(KotlinIdeaCoreBundle.message("notification.text.script.configuration.has.been.changed"))
-            createComponentActionLabel(KotlinIdeaCoreBundle.message("notification.action.text.load.script.configuration")) {
+            setText(notification.title)
+            createComponentActionLabel(notification.loadActionTitle) {
                 onClick()
             }
 
-            createComponentActionLabel(KotlinIdeaCoreBundle.message("notification.action.text.enable.auto.reload")) {
+            createComponentActionLabel(notification.enableAutoReloadActionTitle) {
                 onClick()
                 KotlinScriptingSettings.getInstance(project).isAutoReloadEnabled = true
             }
