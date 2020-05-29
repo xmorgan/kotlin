@@ -1,4 +1,7 @@
 // See KT-7290
+
+class MyOtherClass
+
 class MyClass(val x: String?)
 fun foo(y: MyClass?): Int {
     // x here is smartcast but y is not

@@ -1316,8 +1316,11 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
         }
     }
 
-    private fun FlowContent.generate(functionCall: FirFunctionCall) {
-        generateReceiver(functionCall)
+    private fun FlowContent.generate(functionCall: FirFunctionCall, skipReceiver: Boolean = false) {
+
+        if (!skipReceiver) {
+            generateReceiver(functionCall)
+        }
 
         generate(functionCall.calleeReference)
         generateTypeProjections(functionCall.typeArguments)
@@ -1571,6 +1574,10 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                 is FirVarargArgumentsExpression -> generate(expression)
                 is FirResolvedReifiedParameterReference -> generate(expression)
                 is FirComparisonExpression -> generate(expression)
+                is FirSafeCallExpression -> generate(expression)
+                is FirCheckedSafeCallSubject -> {
+                    +"\$subj\$"
+                }
                 else -> inlineUnsupported(expression)
             }
         }
@@ -1580,6 +1587,30 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
         generate(comparisonExpression.left)
         +" ${comparisonExpression.operation.operator} "
         generate(comparisonExpression.right)
+    }
+
+    private fun FlowContent.generate(safeCallExpression: FirSafeCallExpression) {
+        generate(safeCallExpression.receiver)
+
+        +"?."
+
+        val nestedQualifier = safeCallExpression.regularQualifiedAccess
+        if (nestedQualifier.explicitReceiver == safeCallExpression.checkedSubject) {
+            when (nestedQualifier) {
+                is FirFunctionCall -> {
+                    return generate(nestedQualifier, skipReceiver = true)
+                }
+                is FirQualifiedAccessExpression -> {
+                    return generate(nestedQualifier, skipReceiver = true)
+                }
+            }
+        }
+
+        +"{ "
+
+        generate(nestedQualifier)
+
+        +" }"
     }
 
     private fun FlowContent.generate(resolvedReifiedParameterReference: FirResolvedReifiedParameterReference) {
@@ -1597,8 +1628,10 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
         generate(binaryLogicExpression.rightOperand)
     }
 
-    private fun FlowContent.generate(qualifiedAccessExpression: FirQualifiedAccessExpression) {
-        generateReceiver(qualifiedAccessExpression)
+    private fun FlowContent.generate(qualifiedAccessExpression: FirQualifiedAccessExpression, skipReceiver: Boolean = false) {
+        if (!skipReceiver) {
+            generateReceiver(qualifiedAccessExpression)
+        }
         generate(qualifiedAccessExpression.calleeReference)
     }
 

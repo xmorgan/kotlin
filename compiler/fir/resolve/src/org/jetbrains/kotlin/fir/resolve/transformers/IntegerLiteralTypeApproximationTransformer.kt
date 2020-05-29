@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.calls.FirNamedReferenceWithCandidate
+import org.jetbrains.kotlin.fir.resolve.propagateTypeFromOriginalReceiver
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.resolvedTypeFromPrototype
 import org.jetbrains.kotlin.fir.scopes.impl.FirIntegerOperator
@@ -126,6 +127,15 @@ class IntegerLiteralTypeApproximationTransformer(
     ): CompositeTransformResult<FirStatement> {
         typeOperatorCall.argumentList.transformArguments(this, null)
         return typeOperatorCall.compose()
+    }
+
+    override fun transformCheckedSafeCallSubject(
+        checkedSafeCallSubject: FirCheckedSafeCallSubject,
+        data: ConeKotlinType?
+    ): CompositeTransformResult<FirStatement> {
+        val newReceiver = checkedSafeCallSubject.originalReceiver.transform<FirExpression, ConeKotlinType?>(this, data).single
+        checkedSafeCallSubject.propagateTypeFromOriginalReceiver(newReceiver)
+        return super.transformCheckedSafeCallSubject(checkedSafeCallSubject, data)
     }
 }
 

@@ -33,20 +33,26 @@ class VariableStorage(private val session: FirSession) {
     private val realVariables: MutableMap<Identifier, RealVariable> = HashMap()
     private val syntheticVariables: MutableMap<FirElement, SyntheticVariable> = HashMap()
 
-    fun getOrCreateRealVariableWithoutUnwrappingAlias(flow: Flow, symbol: AbstractFirBasedSymbol<*>, fir: FirElement): RealVariable {
+    fun getOrCreateRealVariableWithoutUnwrappingAlias(
+        flow: Flow, symbol: AbstractFirBasedSymbol<*>, fir: FirElement,
+    ): RealVariable {
         val realFir = fir.unwrapElement()
         val identifier = getIdentifierBySymbol(flow, symbol, realFir)
         return realVariables.getOrPut(identifier) { createRealVariableInternal(flow, identifier, realFir) }
     }
 
-    private fun getOrCreateRealVariable(flow: Flow, symbol: AbstractFirBasedSymbol<*>, fir: FirElement): RealVariable {
+    private fun getOrCreateRealVariable(
+        flow: Flow, symbol: AbstractFirBasedSymbol<*>, fir: FirElement,
+    ): RealVariable {
         val variable = getOrCreateRealVariableWithoutUnwrappingAlias(flow, symbol, fir)
-        return flow.directAliasMap[variable] ?: variable
+        return flow.directAliasMap[variable]?.variable ?: variable
     }
 
     private fun FirElement.unwrapElement(): FirElement = when (this) {
         is FirWhenSubjectExpression -> whenSubject.whenExpression.let { it.subjectVariable ?: it.subject }?.unwrapElement() ?: this
         is FirExpressionWithSmartcast -> originalExpression.unwrapElement()
+        is FirSafeCallExpression -> regularQualifiedAccess.unwrapElement()
+        is FirCheckedSafeCallSubject -> originalReceiver.unwrapElement()
         else -> this
     }
 
@@ -101,7 +107,9 @@ class VariableStorage(private val session: FirSession) {
     fun createSyntheticVariable(fir: FirElement): SyntheticVariable =
         SyntheticVariable(fir, counter++).also { syntheticVariables[fir] = it }
 
-    fun getOrCreateVariable(flow: Flow, fir: FirElement): DataFlowVariable {
+    fun getOrCreateVariable(
+        flow: Flow, fir: FirElement,
+    ): DataFlowVariable {
         val realFir = fir.unwrapElement()
         val symbol = realFir.symbol
         return if (symbol.isStable(realFir)) {
