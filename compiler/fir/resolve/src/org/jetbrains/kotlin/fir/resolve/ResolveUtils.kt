@@ -436,3 +436,25 @@ fun FirAnnotationCall.fqName(session: FirSession): FqName? {
     val symbol = session.firSymbolProvider.getSymbolByTypeRef<FirRegularClassSymbol>(annotationTypeRef) ?: return null
     return symbol.classId.asSingleFqName()
 }
+
+fun FirCheckedSafeCallSubject.propagateTypeFromOriginalReceiver(nullableReceiverExpression: FirExpression) {
+    val receiverType = nullableReceiverExpression.typeRef.coneTypeSafe<ConeKotlinType>() ?: return
+    replaceTypeRef(typeRef.resolvedTypeFromPrototype(receiverType.makeConeTypeDefinitelyNotNullOrNotNull()))
+}
+
+fun FirSafeCallExpression.propagateTypeFromQualifiedAccessAfterNullCheck(
+    nullableReceiverExpression: FirExpression,
+    session: FirSession,
+) {
+    val receiverType = nullableReceiverExpression.typeRef.coneTypeSafe<ConeKotlinType>()
+    val typeAfterNullCheck = (regularQualifiedAccess as? FirExpression)?.typeRef?.coneTypeSafe<ConeKotlinType>() ?: return
+    val isReceiverActuallyNullable = receiverType != null && session.inferenceContext.run { receiverType.isNullableType() }
+
+    val resultingType =
+        if (isReceiverActuallyNullable)
+            typeAfterNullCheck.withNullability(ConeNullability.NULLABLE, session.inferenceContext)
+        else
+            typeAfterNullCheck
+
+    replaceTypeRef(typeRef.resolvedTypeFromPrototype(resultingType))
+}

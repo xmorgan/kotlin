@@ -604,6 +604,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
             runTest("compiler/fir/analysis-tests/testData/resolve/callResolution/debugInfoCall.kt");
         }
 
+        @TestMetadata("extensionInvokeAfterSafeCall.kt")
+        public void testExtensionInvokeAfterSafeCall() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/callResolution/extensionInvokeAfterSafeCall.kt");
+        }
+
         @TestMetadata("invokeAmbiguity.kt")
         public void testInvokeAmbiguity() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/callResolution/invokeAmbiguity.kt");

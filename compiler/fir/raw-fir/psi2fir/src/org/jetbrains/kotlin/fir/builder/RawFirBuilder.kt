@@ -45,19 +45,7 @@ import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
-import kotlin.collections.MutableList
-import kotlin.collections.any
 import kotlin.collections.contains
-import kotlin.collections.filterIsInstance
-import kotlin.collections.first
-import kotlin.collections.firstOrNull
-import kotlin.collections.forEach
-import kotlin.collections.isNotEmpty
-import kotlin.collections.lastOrNull
-import kotlin.collections.plusAssign
-import kotlin.collections.reverse
-import kotlin.collections.withIndex
-import kotlin.collections.zip
 
 class RawFirBuilder(
     session: FirSession, val baseScopeProvider: FirScopeProvider, val stubMode: Boolean
@@ -1712,8 +1700,14 @@ class RawFirBuilder(
                 )
             val firSelector = selector.toFirExpression("Incorrect selector expression")
             if (firSelector is FirModifiableQualifiedAccess) {
-                firSelector.safe = expression is KtSafeQualifiedExpression
-                firSelector.explicitReceiver = expression.receiverExpression.toFirExpression("Incorrect receiver expression")
+                val receiver = expression.receiverExpression.toFirExpression("Incorrect receiver expression")
+
+                if (expression is KtSafeQualifiedExpression) {
+                    return firSelector.wrapWithSafeCall(receiver)
+                }
+
+                firSelector.safe = false
+                firSelector.explicitReceiver = receiver
             }
             return firSelector
         }

@@ -587,10 +587,15 @@ class FirTowerResolverSession internal constructor(
             val invokeFunctionInfo =
                 info.copy(
                     explicitReceiver = invokeReceiverExpression, name = OperatorNameConventions.INVOKE,
-                    candidateForCommonInvokeReceiver = invokeReceiverCandidate.takeUnless { invokeBuiltinExtensionMode }
+                    candidateForCommonInvokeReceiver = invokeReceiverCandidate.takeUnless { invokeBuiltinExtensionMode },
+                    isSafeCall = info.isSafeCall && !invokeBuiltinExtensionMode
                 ).let {
                     when {
-                        invokeBuiltinExtensionMode -> it.withReceiverAsArgument(info.explicitReceiver!!)
+                        invokeBuiltinExtensionMode -> {
+                            val receiverAsIs = info.explicitReceiver!!
+                            val argument = receiverAsIs
+                            it.withReceiverAsArgument(argument)
+                        }
                         else -> it
                     }
                 }
