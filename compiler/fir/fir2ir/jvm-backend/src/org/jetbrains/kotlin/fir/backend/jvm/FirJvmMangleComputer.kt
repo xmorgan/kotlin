@@ -79,7 +79,8 @@ class FirJvmMangleComputer(
             else -> return
         }
         if (parentClassId != null && !parentClassId.isLocal) {
-            val parentClass = session.firSymbolProvider.getClassLikeSymbolByFqName(parentClassId)!!.fir as FirRegularClass
+            val parentClass = session.firSymbolProvider.getClassLikeSymbolByFqName(parentClassId)?.fir as? FirRegularClass
+                ?: throw AssertionError("Attempt to find parent for probably-local declaration!")
             parentClass.accept(this@FirJvmMangleComputer, false)
         } else if (parentClassId == null && !parentPackageFqName.isRoot) {
             builder.appendName(parentPackageFqName.asString())
@@ -224,6 +225,10 @@ class FirJvmMangleComputer(
         isRealExpect = isRealExpect or regularClass.isExpect
         typeParameterContainer.add(regularClass)
         regularClass.mangleSimpleDeclaration(regularClass.name.asString())
+    }
+
+    override fun visitSealedClass(sealedClass: FirSealedClass, data: Boolean) {
+        visitRegularClass(sealedClass, data)
     }
 
 //    override fun visitPackageFragment(declaration: IrPackageFragment, data: Boolean) {
