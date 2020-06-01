@@ -871,6 +871,11 @@ class Fir2IrDeclarationStorage(
         return when (val firDeclaration = firFunctionSymbol.fir) {
             is FirSimpleFunction, is FirAnonymousFunction -> {
                 getCachedIrFunction(firDeclaration)?.let { return it.symbol }
+                symbolTable.referenceSimpleFunctionIfAny(signatureComposer.composeSignature(firDeclaration))?.let { irFunctionSymbol ->
+                    val irFunction = irFunctionSymbol.owner
+                    functionCache[firDeclaration] = irFunction
+                    return irFunctionSymbol
+                }
                 val irParent = findIrParent(firDeclaration)
                 val parentOrigin = (irParent as? IrDeclaration)?.origin ?: IrDeclarationOrigin.DEFINED
                 createIrFunction(firDeclaration, irParent, origin = parentOrigin).apply {
@@ -888,6 +893,11 @@ class Fir2IrDeclarationStorage(
         return when (val fir = firVariableSymbol.fir) {
             is FirProperty -> {
                 propertyCache[fir]?.let { return it.symbol }
+                symbolTable.referencePropertyIfAny(signatureComposer.composeSignature(fir))?.let { irPropertySymbol ->
+                    val irProperty = irPropertySymbol.owner
+                    propertyCache[fir] = irProperty
+                    return irPropertySymbol
+                }
                 val irParent = findIrParent(fir)
                 val parentOrigin = (irParent as? IrDeclaration)?.origin ?: IrDeclarationOrigin.DEFINED
                 createIrProperty(fir, irParent, origin = parentOrigin).apply {
