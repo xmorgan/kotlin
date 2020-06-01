@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.references.impl.FirPropertyFromParameterResolved
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.SyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.AccessorSymbol
+import org.jetbrains.kotlin.fir.symbols.Fir2IrClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.ir.IrElement
@@ -43,7 +44,6 @@ import org.jetbrains.kotlin.ir.types.impl.IrErrorTypeImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.util.isFakeOverride
-import org.jetbrains.kotlin.ir.util.properties
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.psiUtil.endOffset
 import org.jetbrains.kotlin.psi.psiUtil.startOffsetSkippingComments
@@ -297,7 +297,7 @@ internal fun IrClass.findMatchingOverriddenSymbolsFromSupertypes(
 ): List<IrSymbol> {
     for (superType in superTypes) {
         val superTypeClass = superType.classOrNull
-        if (superTypeClass is IrClassSymbolImpl || superTypeClass is IrClassPublicSymbolImpl) {
+        if (superTypeClass is IrClassSymbolImpl || superTypeClass is IrClassPublicSymbolImpl || superTypeClass is Fir2IrClassSymbol) {
             superTypeClass.owner.findMatchingOverriddenSymbolsFromThisAndSupertypes(irBuiltIns, target, result, visited)
         }
     }
