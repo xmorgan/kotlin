@@ -280,10 +280,10 @@ private fun ConstraintSystemBuilder.addConstraintFromLHS(
     val expectedTypeForLHS = expectedTypeProjectionForLHS.type
     val constraintPosition = LHSArgumentConstraintPosition(argument, lhsResult.qualifier ?: lhsResult.unboundDetailedReceiver)
     val expectedTypeVariance = expectedTypeProjectionForLHS.projectionKind.convertVariance()
-    val effectiveVariance = if (expectedType.unwrap().isFunctionOrKFunctionTypeWithAnySuspendability) {
-        AbstractTypeChecker.effectiveVariance(expectedType.constructor.parameters.first().variance.convertVariance(), expectedTypeVariance)
-            ?: expectedTypeVariance
-    } else expectedTypeVariance
+    val effectiveVariance = AbstractTypeChecker.effectiveVariance(
+        expectedType.constructor.parameters.first().variance.convertVariance(),
+        expectedTypeVariance
+    ) ?: expectedTypeVariance
 
     when (effectiveVariance) {
         TypeVariance.INV -> addEqualityConstraint(lhsType, expectedTypeForLHS, constraintPosition)
