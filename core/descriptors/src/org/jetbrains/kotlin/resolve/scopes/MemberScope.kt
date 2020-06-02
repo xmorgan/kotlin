@@ -58,7 +58,7 @@ interface MemberScope : ResolutionScope {
 
 fun MemberScope.computeAllNames() = getClassifierNames()?.let { getFunctionNames() + getVariableNames() + it }
 
-fun Collection<MemberScope>.flatMapClassifierNamesOrNull(): MutableSet<Name>? =
+fun Iterable<MemberScope>.flatMapClassifierNamesOrNull(): MutableSet<Name>? =
         flatMapToNullable(hashSetOf(), MemberScope::getClassifierNames)
 
 /**
@@ -165,7 +165,6 @@ class DescriptorKindFilter(
                     val filter = field.get(null) as? DescriptorKindFilter
                     if (filter != null) MaskToName(filter.kindMask, field.name) else null
                 }
-                .toList()
 
         private val DEBUG_MASK_BIT_NAMES = staticFields<DescriptorKindFilter>()
                 .filter { it.type == Integer.TYPE }
@@ -174,7 +173,6 @@ class DescriptorKindFilter(
                     val isOneBitMask = mask == (mask and (-mask))
                     if (isOneBitMask) MaskToName(mask, field.name) else null
                 }
-                .toList()
 
         private inline fun <reified T : Any> staticFields() = T::class.java.fields.filter { Modifier.isStatic(it.modifiers) }
     }

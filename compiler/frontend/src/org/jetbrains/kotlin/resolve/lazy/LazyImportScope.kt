@@ -47,20 +47,17 @@ import org.jetbrains.kotlin.utils.Printer
 import org.jetbrains.kotlin.utils.addToStdlib.flatMapToNullable
 import org.jetbrains.kotlin.utils.ifEmpty
 
-interface IndexedImports<I : KtImportInfo> {
-    val imports: List<I>
-    fun importsForName(name: Name): Collection<I>
+open class IndexedImports<I : KtImportInfo>(val imports: Array<I>) {
+    open fun importsForName(name: Name): Iterable<I> = imports.asIterable()
 }
 
-class AllUnderImportsIndexed<I : KtImportInfo>(allImports: Collection<I>) : IndexedImports<I> {
-    override val imports = allImports.filter { it.isAllUnder }
-    override fun importsForName(name: Name) = imports
-}
+inline fun <reified I : KtImportInfo> makeAllUnderImportsIndexed(imports: Collection<I>) : IndexedImports<I> =
+    IndexedImports(imports.filter { it.isAllUnder }.toTypedArray())
 
-class ExplicitImportsIndexed<I : KtImportInfo>(allImports: Collection<I>) : IndexedImports<I> {
-    override val imports = allImports.filter { !it.isAllUnder }
 
-    private val nameToDirectives: ListMultimap<Name, I> by lazy {
+class ExplicitImportsIndexed<I : KtImportInfo>(imports: Array<I>) : IndexedImports<I>(imports) {
+
+    private val nameToDirectives: ListMultimap<Name, I> by lazy(LazyThreadSafetyMode.PUBLICATION) {
         val builder = ImmutableListMultimap.builder<Name, I>()
 
         for (directive in imports) {
@@ -73,6 +70,9 @@ class ExplicitImportsIndexed<I : KtImportInfo>(allImports: Collection<I>) : Inde
 
     override fun importsForName(name: Name) = nameToDirectives.get(name)
 }
+
+inline fun <reified I : KtImportInfo> makeExplicitImportsIndexed(imports: Collection<I>) : IndexedImports<I> =
+    ExplicitImportsIndexed(imports.filter { !it.isAllUnder }.toTypedArray())
 
 interface ImportForceResolver {
     fun forceResolveNonDefaultImports()
@@ -119,15 +119,18 @@ open class LazyImportResolver<I : KtImportInfo>(
     }
 
     val allNames: Set<Name>? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        indexedImports.imports.flatMapToNullable(THashSet()) { getImportScope(it).computeImportedNames() }
+        indexedImports.imports.asIterable().flatMapToNullable(THashSet()) { getImportScope(it).computeImportedNames() }
     }
 
     fun definitelyDoesNotContainName(name: Name) = allNames?.let { name !in it } == true
 
     fun recordLookup(name: Name, location: LookupLocation) {
         if (allNames == null) return
-        indexedImports.importsForName(name).forEach {
-            getImportScope(it).recordLookup(name, location)
+        for (it in indexedImports.importsForName(name)) {
+            val scope = getImportScope(it)
+            if (scope !== ImportingScope.Empty) {
+                scope.recordLookup(name, location)
+            }
         }
     }
 }

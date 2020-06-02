@@ -5,7 +5,10 @@
 
 package org.jetbrains.kotlin.resolve.scopes.synthetic
 
-import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.descriptors.ClassDescriptor
+import org.jetbrains.kotlin.descriptors.ClassifierDescriptor
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.TypeAliasDescriptor
 import org.jetbrains.kotlin.incremental.components.LookupLocation
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.record
@@ -16,6 +19,8 @@ import org.jetbrains.kotlin.resolve.scopes.ResolutionScope
 import org.jetbrains.kotlin.resolve.scopes.SyntheticScope
 import org.jetbrains.kotlin.resolve.scopes.SyntheticScopes
 import org.jetbrains.kotlin.storage.StorageManager
+import org.jetbrains.kotlin.util.collectionUtils.filterIsInstanceMapNotNull
+import org.jetbrains.kotlin.utils.SmartList
 
 class FunInterfaceConstructorsScopeProvider(
     storageManager: StorageManager,
@@ -44,14 +49,13 @@ class FunInterfaceConstructorsSyntheticScope(
         val classifier = scope.getContributedClassifier(name, location) ?: return emptyList()
         recordSamLookupsToClassifier(classifier, location)
 
-        return listOfNotNull(getSamConstructor(classifier))
+        val element = getSamConstructor(classifier)
+        return if (element != null) SmartList(element) else emptyList()
     }
 
-    override fun getSyntheticConstructors(scope: ResolutionScope): Collection<FunctionDescriptor> {
-        val classifiers = scope.getContributedDescriptors(DescriptorKindFilter.CLASSIFIERS).filterIsInstance<ClassifierDescriptor>()
-
-        return classifiers.mapNotNull { getSamConstructor(it) }
-    }
+    override fun getSyntheticConstructors(scope: ResolutionScope): Collection<FunctionDescriptor> =
+        scope.getContributedDescriptors(DescriptorKindFilter.CLASSIFIERS)
+            .filterIsInstanceMapNotNull<ClassifierDescriptor, FunctionDescriptor> { getSamConstructor(it) }
 
     private fun getSamConstructor(classifier: ClassifierDescriptor): SamConstructorDescriptor? {
         if (classifier is TypeAliasDescriptor) {
