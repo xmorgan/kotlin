@@ -15,10 +15,10 @@ val atomicfuClasspath by configurations.creating {
     }
 }
 
+val atomicfuRuntimeForTests by configurations.creating
+
 repositories {
-    //mavenLocal()
     jcenter()
-    maven("https://dl.bintray.com/kotlin/kotlinx")
 }
 
 dependencies {
@@ -45,7 +45,12 @@ dependencies {
     testRuntime(project(":compiler:backend-common"))
     testRuntime(commonDep("org.fusesource.jansi", "jansi"))
 
-    atomicfuClasspath("org.jetbrains.kotlinx:atomicfu-js:0.14.3-1.4-M1")
+    atomicfuClasspath("org.jetbrains.kotlinx:atomicfu-js:0.14.3-1.4-M2-eap-83-1") {
+        isTransitive = false
+    }
+
+    embedded(project(":kotlinx-atomicfu-runtime")) { isTransitive = false }
+    atomicfuRuntimeForTests(project(":kotlinx-atomicfu-runtime"))  { isTransitive = false }
 
     val currentOs = OperatingSystem.current()
     val j2v8idString = when {
@@ -77,6 +82,10 @@ testsJar()
 
 projectTest(parallel = true) {
     workingDir = rootDir
+    dependsOn(atomicfuRuntimeForTests)
+    doFirst {
+        systemProperty("atomicfuRuntimeForTests.classpath", atomicfuRuntimeForTests.asPath)
+    }
     setUpJsBoxTests(jsEnabled = true, jsIrEnabled = true)
 }
 

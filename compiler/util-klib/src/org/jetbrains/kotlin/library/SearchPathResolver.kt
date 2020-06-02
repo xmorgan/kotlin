@@ -139,7 +139,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
             val matching = fileSequence
                 .filterOutPre_1_4_libraries()
                 .flatMap { libraryComponentBuilder(it, isDefaultLink).asSequence() }
-                //.map { it.takeIf { libraryMatch(it, unresolved) } }
+                .map { it.takeIf { libraryMatch(it, unresolved) } }
                 .filterNotNull()
 
             return matching.firstOrNull() ?: run {
@@ -224,7 +224,6 @@ abstract class KotlinLibraryProperResolverWithAttributes<L : KotlinLibrary>(
         val candidateCompilerVersion = candidate.versions.compilerVersion
         val candidateAbiVersion = candidate.versions.abiVersion
         val candidateLibraryVersion = candidate.versions.libraryVersion
-
 
         val abiVersionMatch = candidateAbiVersion != null &&
                 knownAbiVersions != null &&

@@ -17,6 +17,7 @@ import org.junit.Test
 import java.io.File
 
 private val atomicfuCompileDependency = System.getProperty("atomicfu.classpath")
+private val atomicfuRuntime = System.getProperty("atomicfuRuntimeForTests.classpath")
 
 abstract class AtomicfuBaseTest(relativePath: String) : BasicIrBoxTest(
     "plugins/atomicfu/atomicfu-compiler/testData/$relativePath",
@@ -25,8 +26,7 @@ abstract class AtomicfuBaseTest(relativePath: String) : BasicIrBoxTest(
     override fun createEnvironment(): KotlinCoreEnvironment {
         return super.createEnvironment().also { environment ->
             AtomicfuComponentRegistrar.registerExtensions(environment.project)
-            val atomicfuDep = atomicfuCompileDependency.split(File.pathSeparator).filter { it.endsWith(".klib") }.single()
-            environment.configuration.put(JSConfigurationKeys.LIBRARIES, listOf(atomicfuDep))
+            environment.configuration.put(JSConfigurationKeys.LIBRARIES, listOf(atomicfuCompileDependency, atomicfuRuntime))
             environment.configuration.put(JSConfigurationKeys.MODULE_KIND, ModuleKind.PLAIN)
         }
     }

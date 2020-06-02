@@ -306,6 +306,7 @@ include ":kotlin-build-common",
         ":kotlin-serialization-unshaded",
         ":kotlin-serialization:plugin-marker",
         ":kotlinx-atomicfu-compiler-plugin",
+        ":kotlinx-atomicfu-runtime",
         ":atomicfu"
 
 if (buildProperties.includeCidrPlugins) {
@@ -528,6 +529,7 @@ project(':kotlin-serialization-unshaded').projectDir = file("$rootDir/libraries/
 project(':kotlin-serialization:plugin-marker').projectDir = file("$rootDir/libraries/tools/kotlin-serialization/plugin-marker")
 
 project(':kotlinx-atomicfu-compiler-plugin').projectDir = file("$rootDir/plugins/atomicfu/atomicfu-compiler")
+project(':kotlinx-atomicfu-runtime').projectDir = file("$rootDir/plugins/atomicfu/atomicfu-runtime")
 project(':atomicfu').projectDir = file("$rootDir/libraries/tools/atomicfu")
 
 // Uncomment to use locally built protobuf-relocated

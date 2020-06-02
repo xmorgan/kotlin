@@ -76,9 +76,8 @@ interface TransformerHelpers {
             superQualifierSymbol
         )
 
-    fun buildFunctionSimpleType(typeParameters: List<IrType>): IrSimpleType {
-        val parametersCount = typeParameters.size - 1
-        val classSymbol = context.irBuiltIns.function(parametersCount)
+    fun buildFunctionSimpleType(paramsCount: Int, typeParameters: List<IrType>): IrSimpleType {
+        val classSymbol = context.irBuiltIns.function(paramsCount)
         return IrSimpleTypeImpl(
             classifier = classSymbol,
             hasQuestionMark = false,
@@ -87,12 +86,16 @@ interface TransformerHelpers {
         )
     }
 
+    fun buildGetterType(valueType: IrType) = buildFunctionSimpleType(0, listOf(valueType))
+    fun buildSetterType(valueType: IrType) = buildFunctionSimpleType(1, listOf(valueType, context.irBuiltIns.unitType))
+
     private fun buildGetValue(symbol: IrValueSymbol) =
         IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, symbol.owner.type, symbol)
 
     fun getterName(name: String) = "<get-$name>"
     fun setterName(name: String) = "<set-$name>"
     fun Name.getFieldName() = "<get-(\\w+)>".toRegex().find(asString())?.groupValues?.get(1)
+        ?: error("Getter name ${this.asString()} does not match special name pattern <get-fieldName>")
 
     private fun IrType.toTypeArgument(): IrTypeArgument {
         return makeTypeProjection(this, Variance.INVARIANT)

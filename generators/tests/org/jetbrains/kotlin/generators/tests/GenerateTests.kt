@@ -173,6 +173,7 @@ import org.jetbrains.kotlin.shortenRefs.AbstractShortenRefsTest
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.tools.projectWizard.cli.AbstractBuildFileGenerationTest
 import org.jetbrains.kotlinx.atomicfu.AbstractBasicAtomicfuTest
+import org.jetbrains.kotlinx.atomicfu.AbstractLocksAtomicfuTest
 import org.jetbrains.kotlin.tools.projectWizard.cli.AbstractProjectTemplateBuildFileGenerationTest
 import org.jetbrains.kotlin.tools.projectWizard.cli.AbstractYamlBuildFileGenerationTest
 import org.jetbrains.kotlin.tools.projectWizard.wizard.AbstractProjectTemplateNewWizardProjectImportTest
