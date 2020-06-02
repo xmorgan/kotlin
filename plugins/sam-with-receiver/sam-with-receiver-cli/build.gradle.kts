@@ -17,8 +17,9 @@ dependencies {
     testCompile(project(":compiler:cli"))
     testCompile(projectTests(":compiler:tests-common"))
     testCompile(commonDep("junit:junit"))
-
-    testRuntimeOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    testCompile(project(":kotlin-scripting-compiler"))
+    testCompile(project(":kotlin-scripting-jvm-host"))
+    testCompile(intellijCoreDep()) { includeJars("intellij-core") }
 
     Platform[192].orHigher {
         testRuntimeOnly(intellijDep()) { includeJars("platform-concurrency") }
