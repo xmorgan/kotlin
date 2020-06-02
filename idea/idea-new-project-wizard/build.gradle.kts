@@ -4,10 +4,9 @@ plugins {
 }
 
 dependencies {
+    // Wizard code is reused in the KMM plugin. Please take a look at https://jetbrains.quip.com/LBjwAw0H3w8H
+    // before adding new dependencies on the Kotlin plugin parts.
     implementation(project(":libraries:tools:new-project-wizard"))
-    implementation(project(":idea:ide-common"))
-    implementation(project(":idea:idea-core"))
-    implementation(project(":idea:idea-jvm"))
     compileOnly(project(":kotlin-reflect-api"))
 
     compileOnly(intellijCoreDep())
