@@ -194,7 +194,7 @@ internal class MemberScopeTowerLevel(
 
 internal class QualifierScopeTowerLevel(scopeTower: ImplicitScopeTower, val qualifier: QualifierReceiver) :
     AbstractScopeTowerLevel(scopeTower) {
-    override fun getVariables(name: Name, extensionReceiver: ReceiverValueWithSmartCastInfo?) = qualifier.staticScope
+    override fun getVariables(name: Name, extensionReceiver: ReceiverValueWithSmartCastInfo?) = qualifier.staticScope.withLocalCache()
         .getContributedVariablesAndIntercept(
             name,
             location,
@@ -205,12 +205,12 @@ internal class QualifierScopeTowerLevel(scopeTower: ImplicitScopeTower, val qual
             createCandidateDescriptor(it, dispatchReceiver = null)
         }
 
-    override fun getObjects(name: Name, extensionReceiver: ReceiverValueWithSmartCastInfo?) = qualifier.staticScope
+    override fun getObjects(name: Name, extensionReceiver: ReceiverValueWithSmartCastInfo?) = qualifier.staticScope.withLocalCache()
         .getContributedObjectVariables(name, location).map {
             createCandidateDescriptor(it, dispatchReceiver = null)
         }
 
-    override fun getFunctions(name: Name, extensionReceiver: ReceiverValueWithSmartCastInfo?) = qualifier.staticScope
+    override fun getFunctions(name: Name, extensionReceiver: ReceiverValueWithSmartCastInfo?) = qualifier.staticScope.withLocalCache()
         .getContributedFunctionsAndConstructors(
             name,
             location,
@@ -238,7 +238,7 @@ internal open class ScopeBasedTowerLevel protected constructor(
     override fun getVariables(
         name: Name,
         extensionReceiver: ReceiverValueWithSmartCastInfo?
-    ): Collection<CandidateWithBoundDispatchReceiver> = resolutionScope.getContributedVariablesAndIntercept(
+    ): Collection<CandidateWithBoundDispatchReceiver> = resolutionScope.withLocalCache().getContributedVariablesAndIntercept(
         name,
         location,
         null,
@@ -256,7 +256,7 @@ internal open class ScopeBasedTowerLevel protected constructor(
         name: Name,
         extensionReceiver: ReceiverValueWithSmartCastInfo?
     ): Collection<CandidateWithBoundDispatchReceiver> =
-        resolutionScope.getContributedObjectVariablesIncludeDeprecated(name, location).map { (classifier, isDeprecated) ->
+        resolutionScope.withLocalCache().getContributedObjectVariablesIncludeDeprecated(name, location).map { (classifier, isDeprecated) ->
             createCandidateDescriptor(
                 classifier,
                 dispatchReceiver = null,
@@ -270,7 +270,9 @@ internal open class ScopeBasedTowerLevel protected constructor(
     ): Collection<CandidateWithBoundDispatchReceiver> {
         val result: ArrayList<CandidateWithBoundDispatchReceiver> = ArrayList()
 
-        resolutionScope.getContributedFunctionsAndConstructors(name, location, null, extensionReceiver, scopeTower).mapTo(result) {
+        val resolutionScopeWithCache = resolutionScope.withLocalCache()
+
+        resolutionScopeWithCache.getContributedFunctionsAndConstructors(name, location, null, extensionReceiver, scopeTower).mapTo(result) {
             createCandidateDescriptor(
                 it,
                 dispatchReceiver = null,
@@ -279,7 +281,7 @@ internal open class ScopeBasedTowerLevel protected constructor(
         }
 
         // Add constructors of deprecated classifier with an additional diagnostic
-        val descriptorWithDeprecation = resolutionScope.getContributedClassifierIncludeDeprecated(name, location)
+        val descriptorWithDeprecation = resolutionScopeWithCache.getContributedClassifierIncludeDeprecated(name, location)
         if (descriptorWithDeprecation != null && descriptorWithDeprecation.isDeprecated) {
             getConstructorsOfClassifier(descriptorWithDeprecation.descriptor).mapTo(result) {
                 createCandidateDescriptor(
