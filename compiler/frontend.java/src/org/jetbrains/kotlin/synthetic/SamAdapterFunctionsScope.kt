@@ -177,7 +177,10 @@ class SamAdapterFunctionsScope(
         val classifier = scope.getContributedClassifier(name, location) ?: return emptyList()
         recordSamLookupsToClassifier(classifier, location)
 
-        if (!shouldGenerateAdditionalSamCandidate) return listOfNotNull(getSamConstructor(classifier))
+        if (!shouldGenerateAdditionalSamCandidate) {
+            val element = getSamConstructor(classifier)
+            return if (element != null) SmartList(element) else emptyList()
+        }
 
         return getAllSamConstructors(classifier)
     }
@@ -244,14 +247,16 @@ class SamAdapterFunctionsScope(
         }
     }
 
-    private fun getAllSamConstructors(classifier: ClassifierDescriptor): List<FunctionDescriptor> {
-        return getSamAdaptersFromConstructors(classifier) + listOfNotNull(getSamConstructor(classifier))
-    }
+    private fun getAllSamConstructors(classifier: ClassifierDescriptor): List<FunctionDescriptor> =
+        getSamAdaptersFromConstructors(classifier).also {
+            val samConstructor = getSamConstructor(classifier)
+            if (samConstructor != null) it.add(samConstructor)
+        }
 
-    private fun getSamAdaptersFromConstructors(classifier: ClassifierDescriptor): List<FunctionDescriptor> {
-        if (!shouldGenerateAdditionalSamCandidate || classifier !is JavaClassDescriptor) return emptyList()
+    private fun getSamAdaptersFromConstructors(classifier: ClassifierDescriptor): MutableList<FunctionDescriptor> {
+        if (!shouldGenerateAdditionalSamCandidate || classifier !is JavaClassDescriptor) return SmartList()
 
-        return arrayListOf<FunctionDescriptor>().apply {
+        return SmartList<FunctionDescriptor>().apply {
             for (constructor in classifier.constructors) {
                 val samConstructor = getSyntheticConstructor(constructor) ?: continue
                 add(samConstructor)

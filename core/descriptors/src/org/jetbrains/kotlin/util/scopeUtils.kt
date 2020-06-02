@@ -18,6 +18,8 @@ package org.jetbrains.kotlin.util.collectionUtils
 
 import org.jetbrains.kotlin.descriptors.ClassifierDescriptor
 import org.jetbrains.kotlin.descriptors.ClassifierDescriptorWithTypeParameters
+import org.jetbrains.kotlin.resolve.scopes.MemberScope
+import org.jetbrains.kotlin.utils.SmartList
 import java.util.*
 
 /**
@@ -64,13 +66,39 @@ inline fun <Scope, T> getFromAllScopes(scopes: List<Scope>, callback: (Scope) ->
     return result ?: emptySet()
 }
 
-inline fun <Scope, T> getFromAllScopes(firstScope: Scope, restScopes: List<Scope>, callback: (Scope) -> Collection<T>): Collection<T> {
+inline fun <Scope, T> getFromAllScopes(scopes: Array<Scope>, callback: (Scope) -> Collection<T>): Collection<T> =
+    when (scopes.size) {
+        0 -> emptyList()
+        1 -> callback(scopes.first())
+        else -> {
+            var result: Collection<T>? = null
+            for (scope in scopes) {
+                result = result.concat(callback(scope))
+            }
+            result ?: emptySet()
+        }
+    }
+
+inline fun <Scope, T> getFromAllScopes(firstScope: Scope, restScopes: Array<Scope>, callback: (Scope) -> Collection<T>): Collection<T> {
     var result: Collection<T>? = callback(firstScope)
     for (scope in restScopes) {
         result = result.concat(callback(scope))
     }
     return result ?: emptySet()
 }
+
+inline fun <Scope, R> Array<out Scope>.flatMapScopes(transform: (Scope) -> Collection<R>): Collection<R> =
+    when (size) {
+        0 -> emptyList()
+        1 -> transform(get(0))
+        else -> flatMapTo(ArrayList<R>(), transform)
+    }
+
+fun listOfNonEmptyScopes(vararg scopes: MemberScope?): SmartList<MemberScope> =
+    scopes.filterTo(SmartList<MemberScope>()) { it != null && it !== MemberScope.Empty }
+
+fun listOfNonEmptyScopes(scopes: Iterable<MemberScope?>): SmartList<MemberScope> =
+    scopes.filterTo(SmartList<MemberScope>()) { it != null && it !== MemberScope.Empty }
 
 inline fun <Scope, T : ClassifierDescriptor> getFirstClassifierDiscriminateHeaders(scopes: List<Scope>, callback: (Scope) -> T?): T? {
     // NOTE: This is performance-sensitive; please don't replace with map().firstOrNull()
@@ -89,3 +117,51 @@ inline fun <Scope, T : ClassifierDescriptor> getFirstClassifierDiscriminateHeade
     }
     return result
 }
+
+inline fun <Scope, T : ClassifierDescriptor> getFirstClassifierDiscriminateHeaders(scopes: Array<Scope>, callback: (Scope) -> T?): T? {
+    // NOTE: This is performance-sensitive; please don't replace with map().firstOrNull()
+    var result: T? = null
+    for (scope in scopes) {
+        val newResult = callback(scope)
+        if (newResult != null) {
+            if (newResult is ClassifierDescriptorWithTypeParameters && newResult.isExpect) {
+                if (result == null) result = newResult
+            }
+            // this class is Impl or usual class
+            else {
+                return newResult
+            }
+        }
+    }
+    return result
+}
+
+inline fun <reified R> Iterable<*>.filterIsInstanceAnd(predicate: (R) -> Boolean): Collection<R> =
+    filterIsInstanceAndTo<R, SmartList<R>>(SmartList<R>(), predicate)
+
+inline fun <reified R, C : MutableCollection<in R>> Iterable<*>.filterIsInstanceAndTo(destination: C, predicate: (R) -> Boolean): C {
+    for (element in this) if (element is R && predicate(element)) destination.add(element)
+    return destination
+}
+
+inline fun <reified T, reified R> Iterable<*>.filterIsInstanceMap(transform: (T) -> R): Collection<R> =
+    filterIsInstanceMapTo<T, R, SmartList<R>>(SmartList<R>(), transform)
+
+inline fun <reified T, reified R, C : MutableCollection<in R>> Iterable<*>.filterIsInstanceMapTo(destination: C, transform: (T) -> R): C {
+    for (element in this) if (element is T) destination.add(transform(element))
+    return destination
+}
+
+inline fun <reified T, reified R> Iterable<*>.filterIsInstanceMapNotNull(transform: (T) -> R?): Collection<R> =
+    filterIsInstanceMapNotNullTo<T, R, SmartList<R>>(SmartList<R>(), transform)
+
+inline fun <reified T, reified R, C : MutableCollection<in R>> Iterable<*>.filterIsInstanceMapNotNullTo(destination: C, transform: (T) -> R?): C {
+    for (element in this) if (element is T) {
+        val result = transform(element)
+        if (result != null) {
+            destination.add(result)
+        }
+    }
+    return destination
+}
+

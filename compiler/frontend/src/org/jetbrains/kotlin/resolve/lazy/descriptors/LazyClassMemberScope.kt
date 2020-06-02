@@ -58,24 +58,21 @@ open class LazyClassMemberScope(
 ) {
 
     private val descriptorsFromDeclaredElements = storageManager.createLazyValue {
-        computeDescriptorsFromDeclaredElements(
-            DescriptorKindFilter.ALL,
-            MemberScope.ALL_NAME_FILTER,
-            NoLookupLocation.WHEN_GET_ALL_DESCRIPTORS
+        val result = LinkedHashSet(
+            computeDescriptorsFromDeclaredElements(
+                DescriptorKindFilter.ALL,
+                MemberScope.ALL_NAME_FILTER,
+                NoLookupLocation.WHEN_GET_ALL_DESCRIPTORS
+            )
         )
-    }
-    private val extraDescriptors: NotNullLazyValue<Collection<DeclarationDescriptor>> = storageManager.createLazyValue {
-        computeExtraDescriptors(NoLookupLocation.FOR_ALREADY_TRACKED)
+        result.addAll(computeExtraDescriptors(NoLookupLocation.FOR_ALREADY_TRACKED))
+        result
     }
 
     override fun getContributedDescriptors(
         kindFilter: DescriptorKindFilter,
         nameFilter: (Name) -> Boolean
-    ): Collection<DeclarationDescriptor> {
-        val result = LinkedHashSet(descriptorsFromDeclaredElements())
-        result.addAll(extraDescriptors())
-        return result
-    }
+    ): Collection<DeclarationDescriptor> =descriptorsFromDeclaredElements()
 
     protected open fun computeExtraDescriptors(location: LookupLocation): Collection<DeclarationDescriptor> {
         val result = ArrayList<DeclarationDescriptor>()
