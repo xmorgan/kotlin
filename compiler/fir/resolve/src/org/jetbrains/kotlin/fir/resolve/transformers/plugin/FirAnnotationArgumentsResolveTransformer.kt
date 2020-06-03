@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.extensions.AnnotationFqn
 import org.jetbrains.kotlin.fir.extensions.registeredPluginAnnotations
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
@@ -33,7 +34,11 @@ class FirAnnotationArgumentsResolveTransformer(
     scopeSession,
     outerBodyResolveContext = outerBodyResolveContext
 ) {
-    override val expressionsTransformer: FirExpressionsResolveTransformer = FirExpressionsResolveTransformerForArgumentAnnotations(this)
+    override val expressionsTransformer: FirExpressionsResolveTransformer = FirExpressionsResolveTransformerForSpecificAnnotations(
+        this,
+        session.registeredPluginAnnotations.annotations
+    )
+
     override val declarationsTransformer: FirDeclarationsResolveTransformer = FirDeclarationsResolveTransformerForArgumentAnnotations(this)
 }
 
@@ -56,10 +61,10 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
     }
 }
 
-private class FirExpressionsResolveTransformerForArgumentAnnotations(
-    transformer: FirBodyResolveTransformer
+private class FirExpressionsResolveTransformerForSpecificAnnotations(
+    transformer: FirBodyResolveTransformer,
+    private val annotations: Set<AnnotationFqn>
 ) : FirExpressionsResolveTransformer(transformer) {
-    private val annotations = session.registeredPluginAnnotations.annotations
     private var annotationArgumentsMode: Boolean = false
 
     override fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: ResolutionMode): CompositeTransformResult<FirStatement> {
