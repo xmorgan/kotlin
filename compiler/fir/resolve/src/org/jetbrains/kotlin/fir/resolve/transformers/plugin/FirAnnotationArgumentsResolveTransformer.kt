@@ -6,9 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.transformers.plugin
 
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.extensions.AnnotationFqn
 import org.jetbrains.kotlin.fir.extensions.registeredPluginAnnotations
@@ -45,6 +43,39 @@ class FirAnnotationArgumentsResolveTransformer(
 private class FirDeclarationsResolveTransformerForArgumentAnnotations(
     transformer: FirBodyResolveTransformer
 ) : FirDeclarationsResolveTransformer(transformer) {
+    override fun transformWrappedDelegateExpression(
+        wrappedDelegateExpression: FirWrappedDelegateExpression,
+        data: ResolutionMode
+    ): CompositeTransformResult<FirStatement> {
+        return wrappedDelegateExpression.compose()
+    }
+
+    override fun transformRegularClass(regularClass: FirRegularClass, data: ResolutionMode): CompositeTransformResult<FirStatement> {
+        return regularClass.transformAnnotations(this, data).transformDeclarations(this, data).compose()
+    }
+
+    override fun transformAnonymousInitializer(
+        anonymousInitializer: FirAnonymousInitializer,
+        data: ResolutionMode
+    ): CompositeTransformResult<FirDeclaration> {
+        return anonymousInitializer.compose()
+    }
+
+    override fun transformSimpleFunction(
+        simpleFunction: FirSimpleFunction,
+        data: ResolutionMode
+    ): CompositeTransformResult<FirSimpleFunction> {
+        return simpleFunction.transformAnnotations(this, data).compose()
+    }
+
+    override fun transformConstructor(constructor: FirConstructor, data: ResolutionMode): CompositeTransformResult<FirDeclaration> {
+        return constructor.transformAnnotations(this, data).compose()
+    }
+
+    override fun transformValueParameter(valueParameter: FirValueParameter, data: ResolutionMode): CompositeTransformResult<FirStatement> {
+        return valueParameter.transformAnnotations(this, data).compose()
+    }
+
     override fun transformProperty(property: FirProperty, data: ResolutionMode): CompositeTransformResult<FirProperty> {
         property.transformAnnotations(this, data)
         property.transformGetter(this, data)
