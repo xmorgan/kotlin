@@ -98,7 +98,7 @@ class DropDownSettingType<V : DisplayableSettingItem>(
 
         init {
             defaultValue = dynamic { reference ->
-                values.first {
+                values.firstOrNull {
                     @Suppress("UNCHECKED_CAST")
                     filter(reference as SettingReference<V, DropDownSettingType<V>>, it)
                 }
