@@ -30,7 +30,12 @@ internal abstract class FirAbstractAnnotationResolveTransformer<D, S>(
 
     override fun transformFile(file: FirFile, data: D): CompositeTransformResult<FirDeclaration> {
         return withScopeCleanup(towerScope.scopes) {
-            towerScope.addScopes(createImportingScopes(file, session, scopeSession))
+            /*
+             * We should disable importing scopes caching here because at this phase we have only
+             *   part of all imports resolved. Scopes for fully resolved imports will be cached
+             *   in further phases
+             */
+            towerScope.addScopes(createImportingScopes(file, session, scopeSession, useCaching = false))
             val state = beforeChildren(file)
             file.transformDeclarations(this, data)
             afterChildren(state)
