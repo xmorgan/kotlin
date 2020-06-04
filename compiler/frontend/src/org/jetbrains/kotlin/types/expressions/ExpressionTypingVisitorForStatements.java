@@ -215,9 +215,7 @@ public class ExpressionTypingVisitorForStatements extends ExpressionTypingVisito
             context.trace.report(UNRESOLVED_REFERENCE.on(operationSign, operationSign));
             temporary.commit();
             return rightInfo.clearType();
-        } else if (!ArgumentTypeResolver.isFunctionLiteralOrCallableReference(right, context) &&
-                   !context.languageVersionSettings.supportsFeature(LanguageFeature.NewInference)
-        ) {
+        } else if (!ArgumentTypeResolver.isFunctionLiteralOrCallableReference(right, context)) {
             // Cache the type info for the right hand side so that we don't evaluate it twice if there is no valid plusAssign.
             // We skip over function literals and references, since ArgumentTypeResolver will only resolve the shape of the
             // function type before attempting to resolve the call.
@@ -246,6 +244,7 @@ public class ExpressionTypingVisitorForStatements extends ExpressionTypingVisito
         if (assignmentOperationType == null || lhsAssignable) {
             // Check for '+'
             Name counterpartName = OperatorConventions.BINARY_OPERATION_NAMES.get(OperatorConventions.ASSIGNMENT_OPERATION_COUNTERPARTS.get(operationType));
+            // (1)
             binaryOperationDescriptors = components.callResolver.resolveBinaryCall(
                     context.replaceTraceAndCache(temporaryForBinaryOperation).replaceScope(scope),
                     receiver, expression, counterpartName
