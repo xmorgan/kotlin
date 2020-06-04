@@ -330,7 +330,7 @@ open class KotlinNativeCompile : AbstractKotlinNativeCompile<KotlinCommonOptions
     override val debuggable = true
 
     @get:Internal
-    override val baseName: String by compilation.map { if (it.isMainCompilation) project.name else "${project.name}_${it.name} }
+    override val baseName: String by compilation.map { if (it.isMainCompilation) project.name else "${project.name}_${it.name}" }
 
     // Store as an explicit provider in order to allow Gradle Instant Execution to capture the state
     private val allSourceProvider = compilation.map { project.files(it.allSources).asFileTree }
@@ -472,7 +472,7 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
     lateinit var binary: NativeBinary
 
     @get:Internal // Taken into account by getSources().
-    val intermediateLibrary: File by compilation.map { it.compileKotlinTask.outputFile.get() }
+    val intermediateLibrary: File by compilation.map { it.compileKotlinTaskHolder.outputFile}.get()
 
     // explicitly store the provider in order for Gradle Instant Execution to capture the state
     private val sourceProvider = compilation.map { compilationInstance ->
@@ -655,7 +655,6 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
     )
 
     private val allSourcesProvider = compilation.map { it.allSources }
-
     private val commonSourcesProvider = compilation.map { it.commonSources }
 
     override fun buildSourceArgs(): List<String> {
@@ -665,15 +664,14 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
             // Allow a user to force the old behaviour of a link task.
             // TODO: Remove in 1.3.70.
             mutableListOf<String>().apply {
-                /*
-                 val friendCompilations = compilation.associateWithTransitiveClosure.toList()
+                val friendCompilations = compilation.get().associateWithTransitiveClosure.toList()
                 val friendFiles = if (friendCompilations.isNotEmpty())
                     project.files(
                         project.provider { friendCompilations.map { it.output.allOutputs } + compilation.friendArtifacts }
                     )
                 else null
-                 */
-                if (!friendFiles.isEmpty) {
+
+                if (friendFiles != null && !friendFiles.isEmpty) {
                     addArg("-friend-modules", friendFiles.joinToString(File.pathSeparator) { it.absolutePath })
                 }
 
@@ -688,7 +686,7 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
     }
 
     private val apiFilesProvider: Provider<List<File>> = compilation.map {
-        project.configurations.getByName(it.apiConfigurationName).files.filterExternalKlibs(project)
+        project.configurations.getByName(it.apiConfigurationName).files.filterKlibsPassedToCompiler(project)
     }
 
     private val binaryNameProvider = project.provider {
@@ -697,8 +695,7 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
 
     private fun validatedExportedLibraries() {
         val exportConfiguration = exportLibraries as? Configuration ?: return
-//        val apiFiles = apiFilesProvider.get()
-        val apiFiles = project.configurations.getByName(compilation.apiConfigurationName).files.filterKlibsPassedToCompiler(project)
+        val apiFiles = apiFilesProvider.get()
 
         val failed = mutableSetOf<Dependency>()
         exportConfiguration.allDependencies.forEach {
