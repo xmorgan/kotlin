@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.gradle.plugin
 import com.android.build.gradle.*
 import com.android.build.gradle.api.AndroidSourceSet
 import com.android.build.gradle.api.BaseVariant
-import com.android.builder.model.SourceProvider
 import org.gradle.api.*
 import org.gradle.api.artifacts.ExternalDependency
 import org.gradle.api.artifacts.maven.Conf2ScopeMappingContainer
@@ -782,15 +781,11 @@ class KotlinConfigurationTools internal constructor(
 abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTools: KotlinConfigurationTools) {
     protected val logger = Logging.getLogger(this.javaClass)
 
-    abstract fun getResDirectories(variantData: BaseVariant): FileCollection
     abstract fun getFlavorNames(variant: BaseVariant): List<String>
     abstract fun getBuildTypeName(variant: BaseVariant): String
     abstract fun getLibraryOutputTask(variant: BaseVariant): Any?
 
-    protected abstract fun getSourceProviders(variantData: BaseVariant): Iterable<SourceProvider>
     protected abstract fun getAllJavaSources(variantData: BaseVariant): Iterable<File>
-    protected abstract fun getJavaTask(variantData: BaseVariant): AbstractCompile?
-    protected abstract fun addJavaSourceDirectoryToVariantModel(variantData: BaseVariant, javaSourceDirectory: File): Unit
 
     protected open fun checkVariantIsValid(variant: BaseVariant) = Unit
 
@@ -802,11 +797,9 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
         androidPlugin: BasePlugin,
         androidExt: BaseExtension,
         variantData: BaseVariant,
-        javaTask: AbstractCompile,
-        kotlinTask: KotlinCompile
+        javaTask: TaskProvider<out AbstractCompile>,
+        kotlinTask: TaskProvider<out KotlinCompile>
     )
-
-    protected abstract fun wrapVariantDataForKapt(variantData: BaseVariant): KaptVariantData<BaseVariant>
 
     fun configureTarget(kotlinAndroidTarget: KotlinAndroidTarget) {
         val project = kotlinAndroidTarget.project
@@ -942,8 +935,8 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
         if (kotlinAndroidTarget.disambiguationClassifier != null) {
 
             val sourceSetToVariants = mutableMapOf<AndroidSourceSet, MutableList<BaseVariant>>().apply {
-                project.forEachVariant { variant ->
-                    for (sourceSet in getSourceProviders(variant)) {
+                forEachVariant(project) { variant ->
+                    for (sourceSet in variant.sourceSets) {
                         val androidSourceSet = sourceSet as? AndroidSourceSet ?: continue
                         getOrPut(androidSourceSet) { mutableListOf() }.add(variant)
                     }
@@ -987,13 +980,6 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
         val variantDataName = getVariantName(variantData)
         logger.kotlinDebug("Process variant [$variantDataName]")
 
-        val javaTask = getJavaTask(variantData)
-
-        if (javaTask == null) {
-            logger.info("KOTLIN: javaTask is missing for $variantDataName, so Kotlin files won't be compiled for it")
-            return
-        }
-
         val defaultSourceSet = project.kotlinExtension.sourceSets.maybeCreate(compilation.defaultSourceSetName)
 
         val kotlinTaskName = compilation.compileKotlinTaskName
@@ -1028,7 +1014,7 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
         androidExt: BaseExtension,
         androidPlugin: BasePlugin
     ) {
-        val javaTask = getJavaTask(variantData) ?: return
+        val javaTask = variantData.getJavaTaskProvider()
 
         getTestedVariantData(variantData)?.let { testedVariant ->
             val testedVariantName = getVariantName(testedVariant)
@@ -1036,7 +1022,7 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
             compilation.associateWith(testedCompilation)
         }
 
-        val kotlinTask = compilation.compileKotlinTask
+        val kotlinTask = compilation.compileKotlinTaskProvider
         configureSources(kotlinTask, variantData, compilation)
         wireKotlinTasks(project, compilation, androidPlugin, androidExt, variantData, javaTask, kotlinTask)
     }
@@ -1053,21 +1039,26 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
             .forEach { configureSources(it, variantData, null) }
     }
 
-    private fun configureSources(compileTask: AbstractCompile, variantData: BaseVariant, compilation: KotlinCompilation<*>?) {
-        val logger = compileTask.project.logger
-
-        for (provider in getSourceProviders(variantData)) {
+    private fun configureSources(
+        compileTask: TaskProvider<out AbstractCompile>,
+        variantData: BaseVariant,
+        compilation: KotlinCompilation<*>?
+    ) {
+        for (provider in variantData.sourceSets) {
             val kotlinSourceSet = provider.getConvention(KOTLIN_DSL_NAME) as? KotlinSourceSet ?: continue
             if (compilation != null) {
                 compilation.source(kotlinSourceSet)
             } else {
-                compileTask.source(kotlinSourceSet.kotlin)
+                compileTask.configure { it.source(kotlinSourceSet.kotlin) }
             }
         }
 
-        for (javaSrcDir in getAllJavaSources(variantData)) {
-            compileTask.source(javaSrcDir)
-            logger.kotlinDebug("Source directory $javaSrcDir was added to kotlin source for ${compileTask.name}")
+        compileTask.configure {
+            val allJavaSources = getAllJavaSources(variantData)
+            it.source(allJavaSources)
+            it.project.logger.kotlinDebug(
+                "Source directories ${allJavaSources.joinToString()} were added to kotlin source for ${compileTask.name}"
+            )
         }
     }
 }
