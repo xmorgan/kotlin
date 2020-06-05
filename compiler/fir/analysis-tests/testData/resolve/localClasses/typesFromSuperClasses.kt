@@ -1,19 +1,13 @@
-abstract class Outer {
-    interface Nested {
-        fun bar()
-    }
+// FILE: A.java
+public interface A<T> {
+    java.util.Collection<T> getAsCollection();
 }
 
-fun main() {
-    object : Outer() {
-        fun foo(n: Nested) {
-            n.bar()
-        }
-    }
-}
+// FILE: B.java
+public interface B<E> extends A<E> {}
 
-class Impl : Outer() {
-    fun foo(n: Nested) {
-        n.bar()
-    }
+// FILE: main.kt
+
+fun main(b: B<String>) {
+    b.asCollection.size
 }
