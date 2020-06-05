@@ -48,11 +48,18 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget>(
         return buildDir.resolve("classes/kotlin/$targetSubDirectory${compilation.name}")
     }
 
-    private fun AbstractKotlinNativeCompile<*>.addCompilerPlugins() {
-        SubpluginEnvironment
-            .loadSubplugins(project, kotlinPluginVersion)
-            .addSubpluginOptions(project, this, compilerPluginOptions)
-        compilerPluginClasspath = project.configurations.getByName(NATIVE_COMPILER_PLUGIN_CLASSPATH_CONFIGURATION_NAME)
+    private fun addCompilerPlugins(compilation: AbstractKotlinNativeCompilation) {
+        val project = compilation.target.project
+
+        project.whenEvaluated {
+            SubpluginEnvironment
+                .loadSubplugins(project, kotlinPluginVersion)
+                .addSubpluginOptions(project, compilation)
+
+            compilation.compileKotlinTaskProvider.configure {
+                it.compilerPluginClasspath = project.configurations.getByName(NATIVE_COMPILER_PLUGIN_CLASSPATH_CONFIGURATION_NAME)
+            }
+        }
     }
 
     // region Artifact creation.
@@ -122,7 +129,6 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget>(
             it.destinationDir = binary.outputDirectory
         }
 
-            addCompilerPlugins()
 
         if (binary !is TestExecutable) {
             tasks.named(binary.compilation.target.artifactsTaskName).configure { it.dependsOn(result) }
@@ -178,6 +184,7 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget>(
             }
             createRegularKlibArtifact(compilation, compileTaskProvider)
         }
+        addCompilerPlugins(compilation)
 
 
         return compileTaskProvider
