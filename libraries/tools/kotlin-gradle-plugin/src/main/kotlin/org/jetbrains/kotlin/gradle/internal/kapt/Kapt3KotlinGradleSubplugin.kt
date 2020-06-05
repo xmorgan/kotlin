@@ -141,8 +141,6 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
             project.plugins.any { it is Kapt3GradleSubplugin }
     }
 
-    private val kotlinToKaptGenerateStubsTasksMap = mutableMapOf<KotlinCompilation<*>, TaskProvider<KaptGenerateStubsTask>>()
-
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>) =
         (kotlinCompilation.platformType == KotlinPlatformType.jvm || kotlinCompilation.platformType == KotlinPlatformType.androidJvm)
 
@@ -252,11 +250,6 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
 
         /** Plugin options are applied to kapt*Compile inside [createKaptKotlinTask] */
         return project.provider { emptyList<SubpluginOption>() }
-    }
-
-    override fun getPluginKotlinTasks(compilation: KotlinCompilation<*>): List<TaskProvider<out AbstractCompile>> {
-        val kaptGenerateStubsTask = kotlinToKaptGenerateStubsTasksMap[compilation]
-        return listOfNotNull(kaptGenerateStubsTask)
     }
 
     // This method should be called no more than once for each Kapt3SubpluginContext
@@ -548,7 +541,9 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
             PropertiesProvider(project).mapKotlinTaskProperties(kaptTask)
         }
 
-        kotlinToKaptGenerateStubsTasksMap[kotlinCompilation] = kaptTaskProvider
+        project.whenEvaluated {
+            addCompilationSourcesToThirdPartyTask(kotlinCompilation, kaptTaskProvider)
+        }
 
         val subpluginOptions = buildOptions("stubs", project.provider { kaptExtension.getJavacOptions() })
         registerSubpluginOptions(kaptTaskProvider, subpluginOptions)

@@ -111,9 +111,6 @@ class KotlinNativeCompilation(
 
     val binariesTaskName: String
         get() = lowerCamelCaseName(target.disambiguationClassifier, compilationName, "binaries")
-
-    override val kotlinOptions: KotlinCommonOptions
-        get() = compileKotlinTask.kotlinOptions
 }
 
 class KotlinSharedNativeCompilation(override val target: KotlinMetadataTarget, val konanTargets: List<KonanTarget>, name: String) :

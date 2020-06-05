@@ -96,12 +96,12 @@ interface KotlinGradleSubplugin<in KotlinCompile : AbstractCompile> {
 
 /**
  * Gradle plugin implementing support for a Kotlin compiler plugin.
- * In order to be discovered, it should be applied to the project as an ordinary [Plugin].
+ *
+ * In order to be discovered, it should be applied to the project as an ordinary Gradle [Plugin], and the default implementation of [apply]
+ * doesn't do anything, but it can be overridden.
  *
  * Then its [isApplicable] is checked against compilations of the project, and if it returns true,
  * then [applyToCompilation], [getPluginKotlinTasks], and other functions may be called later.
- *
- * The [Provider] returned from this function may not be called if the compilation is avoided during the build.
  */
 interface KotlinCompilerPluginSupportPlugin : Plugin<Project> {
     override fun apply(target: Project) = Unit
@@ -116,10 +116,6 @@ interface KotlinCompilerPluginSupportPlugin : Plugin<Project> {
     fun applyToCompilation(
         kotlinCompilation: KotlinCompilation<*>
     ): Provider<List<SubpluginOption>>
-
-    fun getPluginKotlinTasks(
-        compilation: KotlinCompilation<*>
-    ): List<TaskProvider<out AbstractCompile>> = emptyList()
 
     fun getCompilerPluginId(): String
     fun getPluginArtifact(): SubpluginArtifact

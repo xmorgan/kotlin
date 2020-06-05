@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaCompilation
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.CompilerPluginOptions
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+import org.jetbrains.kotlin.gradle.tasks.thisTaskProvider
 import java.util.*
 
 class SubpluginEnvironment(
@@ -38,12 +39,14 @@ class SubpluginEnvironment(
                     klass.classLoader
                 }
 
-                val compatibilitySubplugins = ServiceLoader.load(klass, classloader)
-                    .map { legacySubpluginAsCompilerPluginSupportPlugin(@Suppress("UNCHECKED_CAST") (it as KotlinGradleSubplugin<AbstractCompile>)) }
+                val result = project.plugins.filterIsInstance<KotlinCompilerPluginSupportPlugin>()
 
-                val lifecycleAwareSubplugins = project.plugins.filterIsInstance<KotlinCompilerPluginSupportPlugin>()
+                @Suppress("DEPRECATION", "UNCHECKED_CAST")
+                val compatibilitySubplugins = ServiceLoader.load(klass, classloader).map {
+                    LegacyKotlinCompilerPluginSupportPlugin(it as KotlinGradleSubplugin<AbstractCompile>)
+                }
 
-                SubpluginEnvironment(compatibilitySubplugins + lifecycleAwareSubplugins, kotlinPluginVersion)
+                SubpluginEnvironment(result + compatibilitySubplugins, kotlinPluginVersion)
             } catch (e: NoClassDefFoundError) {
                 // Skip plugin loading if KotlinGradleSubplugin is not defined.
                 // It is true now for tests in kotlin-gradle-plugin-core.
@@ -84,6 +87,12 @@ class SubpluginEnvironment(
             }
 
             project.logger.kotlinDebug("Subplugin $pluginId loaded")
+
+            if (subplugin is LegacyKotlinCompilerPluginSupportPlugin) {
+                subplugin.getPluginKotlinTasks(kotlinCompilation).forEach { task ->
+                    addCompilationSourcesToThirdPartyTask(kotlinCompilation, task.thisTaskProvider)
+                }
+            }
         }
 
         return appliedSubplugins
@@ -103,10 +112,24 @@ class SubpluginEnvironment(
     }
 }
 
-private fun <T : AbstractCompile> legacySubpluginAsCompilerPluginSupportPlugin(
-    @Suppress("DEPRECATION")
-    oldPlugin: KotlinGradleSubplugin<T>
-): KotlinCompilerPluginSupportPlugin = object : KotlinCompilerPluginSupportPlugin {
+internal fun addCompilationSourcesToThirdPartyTask(compilation: KotlinCompilation<*>, task: TaskProvider<out AbstractCompile>) {
+    if (compilation is KotlinJvmAndroidCompilation) {
+        processAndroidKotlinAndJavaSources(
+            compilation,
+            addKotlinSources = { sourceSet -> task.configure { it.source(sourceSet.kotlin) } },
+            addJavaSources = { sources -> task.configure { it.source(sources) }}
+        )
+    } else {
+        task.configure { taskInstance ->
+            compilation.allKotlinSourceSets.forEach { sourceSet -> taskInstance.source(sourceSet.kotlin) }
+        }
+    }
+}
+
+internal class LegacyKotlinCompilerPluginSupportPlugin(
+    @Suppress("deprecation") // support for deprecated API
+    val oldPlugin: KotlinGradleSubplugin<AbstractCompile>
+): KotlinCompilerPluginSupportPlugin {
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean =
         oldPlugin.isApplicable(kotlinCompilation.target.project, kotlinCompilation.compileKotlinTaskProvider.get() as AbstractCompile)
 
@@ -123,10 +146,9 @@ private fun <T : AbstractCompile> legacySubpluginAsCompilerPluginSupportPlugin(
 
         val variantData = (kotlinCompilation as? KotlinJvmAndroidCompilation)?.androidVariant
 
-        @Suppress("UNCHECKED_CAST")
         val result = oldPlugin.apply(
             project,
-            kotlinCompilation.compileKotlinTask as T,
+            kotlinCompilation.compileKotlinTask as AbstractCompile,
             findJavaTaskForKotlinCompilation(kotlinCompilation)?.get(),
             variantData,
             androidProjectHandlerOrNull,
@@ -136,13 +158,9 @@ private fun <T : AbstractCompile> legacySubpluginAsCompilerPluginSupportPlugin(
         return project.provider { result }
     }
 
-    override fun getPluginKotlinTasks(compilation: KotlinCompilation<*>): List<TaskProvider<out AbstractCompile>> {
+    fun getPluginKotlinTasks(compilation: KotlinCompilation<*>): List<AbstractCompile> {
         val project = compilation.target.project
-
-        @Suppress("UNCHECKED_CAST")
-        val tasks = oldPlugin.getSubpluginKotlinTasks(project, compilation.compileKotlinTask as T)
-        val allAbstractCompileTasks = project.tasks.withType(AbstractCompile::class.java)
-        return tasks.map { allAbstractCompileTasks.named(it.name) }
+        return oldPlugin.getSubpluginKotlinTasks(project, compilation.compileKotlinTask as AbstractCompile)
     }
 
     override fun getCompilerPluginId(): String = oldPlugin.getCompilerPluginId()
