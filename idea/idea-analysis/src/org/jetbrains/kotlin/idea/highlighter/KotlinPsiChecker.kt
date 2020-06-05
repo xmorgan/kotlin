@@ -48,7 +48,6 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.diagnostics.Diagnostics
 import org.jetbrains.kotlin.types.KotlinType
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.lang.reflect.*
 import java.util.*
 
@@ -253,13 +252,24 @@ private class ElementAnnotator(
                     in Errors.UNRESOLVED_REFERENCE_DIAGNOSTICS -> {
                         val referenceExpression = element as KtReferenceExpression
                         val reference = referenceExpression.mainReference
-                        if (reference is MultiRangeReference) {
+                        val adjustedRanges = if (reference is MultiRangeReference) {
+                            reference.ranges.map { it.shiftRight(referenceExpression.textOffset) }
+                        } else {
+                            ranges
+                        }
+
+                        // TODO: suppress unresolved reference only for IDE console files
+                        if (false) {
                             AnnotationPresentationInfo(
-                                ranges = reference.ranges.map { it.shiftRight(referenceExpression.textOffset) },
-                                highlightType = ProblemHighlightType.LIKE_UNKNOWN_SYMBOL
+                                ranges = adjustedRanges,
+                                textAttributes = KotlinHighlightingColors.UNRESOLVED_SUPPRESSED,
+                                highlightingSeverity = Severity.INFO
                             )
                         } else {
-                            AnnotationPresentationInfo(ranges, highlightType = ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                            AnnotationPresentationInfo(
+                                ranges = adjustedRanges,
+                                highlightType = ProblemHighlightType.LIKE_UNKNOWN_SYMBOL
+                            )
                         }
                     }
 

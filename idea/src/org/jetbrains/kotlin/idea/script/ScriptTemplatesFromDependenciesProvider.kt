@@ -10,10 +10,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ModuleRootEvent
-import com.intellij.openapi.roots.ModuleRootListener
-import com.intellij.openapi.roots.OrderEnumerator
-import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.roots.*
 import com.intellij.openapi.vfs.*
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.indexing.FileBasedIndex
@@ -129,25 +126,37 @@ class ScriptTemplatesFromDependenciesProvider(private val project: Project) : Sc
                         logger.debug("root matching SCRIPT_DEFINITION_MARKERS_PATH found: ${root.path}")
                     }
 
+                    val templateSource = jarFS.getVirtualFileForJar(root) ?: root
+                    val module = ProjectFileIndex.getInstance(project).getModuleForFile(templateSource) ?: return@forEach
+
+                    val orderEntriesForFile = ProjectFileIndex.getInstance(project).getOrderEntriesForFile(templateSource)
+                        .filter { it is ModuleSourceOrderEntry || it is LibraryOrSdkOrderEntry }
+                        .takeIf { it.isNotEmpty() } ?: return@forEach
+
                     root.findFileByRelativePath(SCRIPT_DEFINITION_MARKERS_PATH)?.children?.forEach { resourceFile ->
                         if (resourceFile.isValid && !resourceFile.isDirectory) {
                             templates.add(resourceFile.name.removeSuffix(SCRIPT_DEFINITION_MARKERS_EXTENSION_WITH_DOT))
                         }
                     }
 
-                    val templateSource = jarFS.getVirtualFileForJar(root) ?: root
-                    val module = ProjectFileIndex.getInstance(project).getModuleForFile(templateSource) ?: return@forEach
+                    orderEntriesForFile.forEach {
+                        classpath.addAll(
+                            OrderEnumerator.orderEntries(it.ownerModule).withoutSdk().classesRoots.mapNotNull {
+                                it.canonicalPath?.removeSuffix("!/").let(::File)
+                            }
+                        )
+                    }
 
                     // assuming that all libraries are placed into classes roots
                     // TODO: extract exact library dependencies instead of putting all module dependencies into classpath
                     // minimizing the classpath needed to use the template by taking cp only from modules with new templates found
                     // on the other hand the approach may fail if some module contains a template without proper classpath, while
                     // the other has properly configured classpath, so assuming that the dependencies are set correctly everywhere
-                    classpath.addAll(
+                    /*classpath.addAll(
                         OrderEnumerator.orderEntries(module).withoutSdk().classesRoots.mapNotNull {
                             it.canonicalPath?.removeSuffix("!/").let(::File)
                         }
-                    )
+                    )*/
                 }
             }
             .onProcessed {

@@ -24,7 +24,8 @@ class AnnotationPresentationInfo(
     val ranges: List<TextRange>,
     val nonDefaultMessage: String? = null,
     val highlightType: ProblemHighlightType? = null,
-    val textAttributes: TextAttributesKey? = null
+    val textAttributes: TextAttributesKey? = null,
+    val highlightingSeverity: Severity? = null
 ) {
 
     fun processDiagnostics(holder: AnnotationHolder, diagnostics: List<Diagnostic>, fixesMap: MultiMap<Diagnostic, IntentionAction>) {
@@ -55,7 +56,7 @@ class AnnotationPresentationInfo(
     private fun create(diagnostic: Diagnostic, range: TextRange, holder: AnnotationHolder): Annotation {
         val defaultMessage = nonDefaultMessage ?: getDefaultMessage(diagnostic)
 
-        val annotation = when (diagnostic.severity) {
+        val annotation = when (highlightingSeverity ?: diagnostic.severity) {
             Severity.ERROR -> holder.createErrorAnnotation(range, defaultMessage)
             Severity.WARNING -> {
                 if (highlightType == ProblemHighlightType.WEAK_WARNING) {
