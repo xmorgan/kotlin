@@ -40,7 +40,9 @@ import java.io.File
 @CacheableTask
 open class KotlinCompileCommon : AbstractKotlinCompile<K2MetadataCompilerArguments>(), KotlinCommonCompile {
 
-    private val kotlinOptionsImpl = KotlinMultiplatformCommonOptionsImpl()
+    private val kotlinOptionsImpl: KotlinMultiplatformCommonOptionsImpl
+        get() = taskData.compilation.kotlinOptions as KotlinMultiplatformCommonOptionsImpl
+
     override val kotlinOptions: KotlinMultiplatformCommonOptions
         get() = kotlinOptionsImpl
 

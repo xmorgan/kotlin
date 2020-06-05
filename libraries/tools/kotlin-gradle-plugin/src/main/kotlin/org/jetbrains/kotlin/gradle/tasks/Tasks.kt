@@ -361,7 +361,7 @@ open class KotlinCompile : AbstractKotlinCompile<K2JVMCompilerArguments>(), Kotl
     private val kotlinOptionsImpl = KotlinJvmOptionsImpl()
 
     override val kotlinOptions: KotlinJvmOptions
-        get() = kotlinOptionsImpl
+        get() = taskData.compilation.kotlinOptions as KotlinJvmOptions
 
     @get:Internal
     internal open val sourceRootsContainer = FilteringSourceRootsContainer()
@@ -509,7 +509,8 @@ open class Kotlin2JsCompile : AbstractKotlinCompile<K2JSCompilerArguments>(), Ko
         incremental = true
     }
 
-    private val kotlinOptionsImpl = KotlinJsOptionsImpl()
+    private val kotlinOptionsImpl: KotlinJsOptionsImpl
+        get() = taskData.compilation.kotlinOptions as KotlinJsOptionsImpl
 
     override val kotlinOptions: KotlinJsOptions
         get() = kotlinOptionsImpl
