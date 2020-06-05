@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.fir.declarations.builder.FirConstructorBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirPrimaryConstructorBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirSimpleFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
-import org.jetbrains.kotlin.fir.declarations.impl.*
+import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
 import org.jetbrains.kotlin.fir.expressions.FirConstKind
@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.fir.java.declarations.*
 import org.jetbrains.kotlin.fir.java.enhancement.*
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
-import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.FirOverrideAwareScope
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptor
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -42,7 +42,7 @@ import org.jetbrains.kotlin.utils.Jsr305State
 class JavaClassEnhancementScope(
     private val session: FirSession,
     private val useSiteMemberScope: JavaClassUseSiteMemberScope
-) : FirScope() {
+) : FirOverrideAwareScope() {
     private val owner: FirRegularClass = useSiteMemberScope.symbol.fir
 
     private val javaTypeParameterStack: JavaTypeParameterStack =
@@ -56,6 +56,7 @@ class JavaClassEnhancementScope(
         FirJavaEnhancementContext(session) { null }.copyWithNewDefaultTypeQualifiers(typeQualifierResolver, jsr305State, owner.annotations)
 
     private val enhancements = mutableMapOf<FirCallableSymbol<*>, FirCallableSymbol<*>>()
+    private val overriddenFunctions = mutableMapOf<FirFunctionSymbol<*>, Collection<FirFunctionSymbol<*>>>()
 
     override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
         useSiteMemberScope.processPropertiesByName(name) process@{ original ->
@@ -253,7 +254,9 @@ class JavaClassEnhancementScope(
             else -> throw AssertionError("Unknown Java method to enhance: ${firMethod.render()}")
         }.apply {
             annotations += firMethod.annotations
-        }.build()
+        }.build().also {
+            overriddenFunctions[it.symbol] = overriddenMembers.mapNotNull { it.symbol as? FirFunctionSymbol<*> }
+        }
         return function.symbol
     }
 
@@ -412,4 +415,14 @@ class JavaClassEnhancementScope(
         }
     }
 
+    override fun processOverriddenFunctions(functionSymbol: FirFunctionSymbol<*>, processor: (FirFunctionSymbol<*>) -> Unit) {
+        val overriddenList =
+            overriddenFunctions[functionSymbol] ?: return useSiteMemberScope.processOverriddenFunctions(functionSymbol, processor)
+
+        overriddenList.forEach(processor)
+
+        for (overridden in overriddenList) {
+            return useSiteMemberScope.processOverriddenFunctions(overridden, processor)
+        }
+    }
 }

@@ -33,6 +33,11 @@ abstract class FirScope {
     ) {}
 
     open fun mayContainName(name: Name) = true
+
+    open fun processOverriddenFunctions(
+        functionSymbol: FirFunctionSymbol<*>,
+        processor: (FirFunctionSymbol<*>) -> Unit
+    ) {}
 }
 
 enum class ProcessorAction {

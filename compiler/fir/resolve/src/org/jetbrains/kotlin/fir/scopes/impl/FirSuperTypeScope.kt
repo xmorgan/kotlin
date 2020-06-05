@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.scopes.FirOverrideAwareScope
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -28,7 +29,8 @@ import kotlin.collections.HashSet
 class FirSuperTypeScope private constructor(
     session: FirSession,
     overrideChecker: FirOverrideChecker,
-    val scopes: List<FirScope>
+    private val scopes: List<FirScope>,
+    private val isBuiltAsOverrideAware: Boolean,
 ) : AbstractFirOverrideScope(session, overrideChecker) {
 
     private val absentFunctions = mutableSetOf<Name>()
@@ -239,6 +241,18 @@ class FirSuperTypeScope private constructor(
         super.processClassifiersByNameWithSubstitution(name, processor)
     }
 
+    override fun processOverriddenFunctions(functionSymbol: FirFunctionSymbol<*>, processor: (FirFunctionSymbol<*>) -> Unit) {
+        // This is not very nice solution, but we use FirSuperTypeScope for intersection types (that may not fully support that functionality)
+        // But for types based on normal classes, it should work just fine
+        // `FirOverrideAwareScope` may be turned into an interface, but it looks like `FirScope` would need, too
+        //require(isBuiltAsOverrideAware) { "isBuiltAsOverrideAware is false" }
+
+        for (scope in scopes) {
+            //require(scope is FirOverrideAwareScope) { "$scope is not a FirOverrideAwareScope" }
+            scope.processOverriddenFunctions(functionSymbol, processor)
+        }
+    }
+
     companion object {
         fun prepareSupertypeScope(
             session: FirSession,
@@ -247,7 +261,17 @@ class FirSuperTypeScope private constructor(
         ): FirScope {
             scopes.singleOrNull()?.let { return it }
 
-            return FirSuperTypeScope(session, overrideChecker, scopes)
+            return FirSuperTypeScope(session, overrideChecker, scopes, isBuiltAsOverrideAware = false)
+        }
+
+        fun prepareOverrideAwareSupertypeScope(
+            session: FirSession,
+            overrideChecker: FirOverrideChecker,
+            scopes: List<FirOverrideAwareScope>
+        ): FirOverrideAwareScope {
+            scopes.singleOrNull()?.let { return it }
+
+            return FirSuperTypeScope(session, overrideChecker, scopes, isBuiltAsOverrideAware = true)
         }
     }
 }

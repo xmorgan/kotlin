@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.scopes.jvm
 import org.jetbrains.kotlin.builtins.jvm.JvmBuiltInsSettings
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.scopes.FirOverrideAwareScope
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
@@ -17,9 +18,9 @@ import org.jetbrains.kotlin.name.Name
 
 class JvmMappedScope(
     private val declaredMemberScope: FirScope,
-    private val javaMappedClassUseSiteScope: FirScope,
+    private val javaMappedClassUseSiteScope: FirOverrideAwareScope,
     private val signatures: Signatures
-) : FirScope() {
+) : FirOverrideAwareScope() {
 
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
         val whiteListSignatures = signatures.whiteListSignaturesByName[name]
@@ -35,6 +36,10 @@ class JvmMappedScope(
 
 
         declaredMemberScope.processFunctionsByName(name, processor)
+    }
+
+    override fun processOverriddenFunctions(functionSymbol: FirFunctionSymbol<*>, processor: (FirFunctionSymbol<*>) -> Unit) {
+
     }
 
     override fun processDeclaredConstructors(processor: (FirConstructorSymbol) -> Unit) {

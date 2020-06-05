@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.declarations.builder.FirSimpleFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirValueParameterBuilder
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.scopes.FirOverrideAwareScope
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -22,11 +23,12 @@ import org.jetbrains.kotlin.name.Name
 abstract class AbstractFirUseSiteMemberScope(
     session: FirSession,
     overrideChecker: FirOverrideChecker,
-    protected val superTypesScope: FirScope,
+    protected val superTypesScope: FirOverrideAwareScope,
     protected val declaredMemberScope: FirScope
 ) : AbstractFirOverrideScope(session, overrideChecker) {
 
     private val functions = hashMapOf<Name, Collection<FirFunctionSymbol<*>>>()
+    private val directOverridden = hashMapOf<FirFunctionSymbol<*>, Collection<FirFunctionSymbol<*>>>()
 
     override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
         functions.getOrPut(name) {
@@ -41,7 +43,9 @@ abstract class AbstractFirUseSiteMemberScope(
     ): Collection<FirFunctionSymbol<*>> = mutableListOf<FirFunctionSymbol<*>>().apply {
         val overrideCandidates = mutableSetOf<FirFunctionSymbol<*>>()
         declaredMemberScope.processFunctionsByName(name) {
-            val symbol = processInheritedDefaultParameters(it)
+            val directOverridden = computeDirectOverridden(it)
+            this@AbstractFirUseSiteMemberScope.directOverridden[it] = directOverridden
+            val symbol = processInheritedDefaultParameters(it, directOverridden)
             overrideCandidates += symbol
             add(symbol)
         }
@@ -56,30 +60,39 @@ abstract class AbstractFirUseSiteMemberScope(
         }
     }
 
-    private fun processInheritedDefaultParameters(symbol: FirFunctionSymbol<*>): FirFunctionSymbol<*> {
-        val firSimpleFunction = symbol.fir as? FirSimpleFunction ?: return symbol
-        if (firSimpleFunction.valueParameters.isEmpty() || firSimpleFunction.valueParameters.any { it.defaultValue != null }) return symbol
-
-        var foundFir: FirFunction<*>? = null
+    private fun computeDirectOverridden(symbol: FirFunctionSymbol<*>): Collection<FirFunctionSymbol<*>> {
+        val result = mutableListOf<FirFunctionSymbol<*>>()
+        val firSimpleFunction = symbol.fir as? FirSimpleFunction ?: return emptyList()
         superTypesScope.processFunctionsByName(symbol.callableId.callableName) { superSymbol ->
             val superFunctionFir = superSymbol.fir
-            if (foundFir == null &&
-                superFunctionFir is FirSimpleFunction &&
-                overrideChecker.isOverriddenFunction(firSimpleFunction, superFunctionFir) &&
-                superFunctionFir.valueParameters.any { parameter -> parameter.defaultValue != null }
+            if (superFunctionFir is FirSimpleFunction &&
+                overrideChecker.isOverriddenFunction(firSimpleFunction, superFunctionFir)
             ) {
-                foundFir = superFunctionFir
+                result.add(superSymbol)
             }
         }
 
-        if (foundFir == null) return symbol
+        return result
+    }
+
+    private fun processInheritedDefaultParameters(
+        symbol: FirFunctionSymbol<*>,
+        directOverridden: Collection<FirFunctionSymbol<*>>
+    ): FirFunctionSymbol<*> {
+        val firSimpleFunction = symbol.fir as? FirSimpleFunction ?: return symbol
+        if (firSimpleFunction.valueParameters.isEmpty() || firSimpleFunction.valueParameters.any { it.defaultValue != null }) return symbol
+
+        val overriddenWithDefault: FirFunction<*> =
+            directOverridden.singleOrNull {
+                it.fir.valueParameters.any { parameter -> parameter.defaultValue != null }
+            }?.fir ?: return symbol
 
         val newSymbol = FirNamedFunctionSymbol(symbol.callableId, false, null)
 
         createFunctionCopy(firSimpleFunction, newSymbol).apply {
             resolvePhase = firSimpleFunction.resolvePhase
             typeParameters += firSimpleFunction.typeParameters
-            valueParameters += firSimpleFunction.valueParameters.zip(foundFir!!.valueParameters)
+            valueParameters += firSimpleFunction.valueParameters.zip(overriddenWithDefault.valueParameters)
                 .map { (overrideParameter, overriddenParameter) ->
                     if (overriddenParameter.defaultValue != null)
                         createValueParameterCopy(overrideParameter, overriddenParameter.defaultValue).apply {
@@ -118,6 +131,15 @@ abstract class AbstractFirUseSiteMemberScope(
             isNoinline = parameter.isNoinline
             isVararg = parameter.isVararg
         }
+
+    override fun processOverriddenFunctions(functionSymbol: FirFunctionSymbol<*>, processor: (FirFunctionSymbol<*>) -> Unit) {
+        val overriddenList = directOverridden[functionSymbol] ?: return superTypesScope.processOverriddenFunctions(functionSymbol, processor)
+
+        overriddenList.forEach(processor)
+        for (overridden in overriddenList) {
+            superTypesScope.processOverriddenFunctions(overridden, processor)
+        }
+    }
 
     override fun processClassifiersByNameWithSubstitution(name: Name, processor: (FirClassifierSymbol<*>, ConeSubstitutor) -> Unit) {
         declaredMemberScope.processClassifiersByNameWithSubstitution(name, processor)

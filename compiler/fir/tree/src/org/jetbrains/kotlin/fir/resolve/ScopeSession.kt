@@ -10,8 +10,13 @@ class ScopeSession {
 
     var returnTypeCalculator: Any? = null
 
-    @Deprecated(level = DeprecationLevel.ERROR, message = "Only for getOrBuild")
+    @Deprecated(level = DeprecationLevel.ERROR, message = "Private for inline")
     fun scopes() = scopes
+
+    fun <ID : Any, FS : Any> getIfComputed(id: ID, key: ScopeSessionKey<ID, FS>): FS? {
+        @Suppress("UNCHECKED_CAST")
+        return scopes.get(id)?.get(key) as FS?
+    }
 
     inline fun <reified ID : Any, reified FS : Any> getOrBuild(id: ID, key: ScopeSessionKey<ID, FS>, build: () -> FS): FS {
         @Suppress("DEPRECATION_ERROR")

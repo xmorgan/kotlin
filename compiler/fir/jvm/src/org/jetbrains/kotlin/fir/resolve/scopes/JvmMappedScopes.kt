@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.wrapSubstitutionScopeIfNeed
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.jvm.JvmMappedScope
+import org.jetbrains.kotlin.fir.scopes.toDummyOverrideAwareScope
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
@@ -36,7 +37,7 @@ fun wrapScopeWithJvmMapped(
     val preparedSignatures = JvmMappedScope.prepareSignatures(javaClass)
     return if (preparedSignatures.isNotEmpty()) {
         javaClass.unsubstitutedScope(useSiteSession, scopeSession).let { javaClassUseSiteScope ->
-            val jvmMappedScope = JvmMappedScope(declaredMemberScope, javaClassUseSiteScope, preparedSignatures)
+            val jvmMappedScope = JvmMappedScope(declaredMemberScope, javaClassUseSiteScope.toDummyOverrideAwareScope(), preparedSignatures)
             if (klass !is FirRegularClass) {
                 jvmMappedScope
             } else {

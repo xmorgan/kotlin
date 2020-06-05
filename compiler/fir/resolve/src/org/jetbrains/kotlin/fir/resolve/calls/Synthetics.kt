@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.isStatic
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
@@ -13,10 +14,7 @@ import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.StandardClassIds
 import org.jetbrains.kotlin.fir.symbols.SyntheticSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirAccessorSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.load.java.propertyNameByGetMethodName
@@ -52,6 +50,8 @@ class FirSyntheticPropertiesScope(
         val getterReturnType = (getter.returnTypeRef as? FirResolvedTypeRef)?.type
         if ((getterReturnType as? ConeClassLikeType)?.lookupTag?.classId == StandardClassIds.Unit) return
 
+        if (!getterSymbol.hasJavaOverridden()) return
+
         var matchingSetter: FirSimpleFunction? = null
         if (getterReturnType != null) {
             val setterName = setterNameByGetterName(getterName)
@@ -77,6 +77,19 @@ class FirSyntheticPropertiesScope(
             delegateSetter = matchingSetter
         }
         processor(property.symbol)
+    }
+
+    private fun FirFunctionSymbol<*>.hasJavaOverridden(): Boolean {
+        if (this.unwrapOverridden().fir.origin == FirDeclarationOrigin.Enhancement) return true
+
+        var result = false
+        baseScope.processOverriddenFunctions(this) {
+            if (it.unwrapOverridden().fir.origin == FirDeclarationOrigin.Enhancement) {
+                result = true
+            }
+        }
+
+        return result
     }
 
     override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
@@ -118,4 +131,3 @@ class FirSyntheticPropertiesScope(
         private const val IS_PREFIX = "is"
     }
 }
-
