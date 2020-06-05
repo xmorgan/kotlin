@@ -52,8 +52,7 @@ class KotlinJsDcePlugin : Plugin<Project> {
     }
 
     private fun processCompilation(project: Project, kotlinCompilation: KotlinCompilation<*>) {
-        val kotlinTaskName = kotlinCompilation.compileKotlinTaskName
-        val kotlinTask = project.tasks.findByName(kotlinTaskName) as? Kotlin2JsCompile ?: return
+        val kotlinTask = kotlinCompilation.compileKotlinTaskProvider
         val dceTaskName = lowerCamelCaseName(
             DCE_TASK_PREFIX,
             kotlinCompilation.target.disambiguationClassifier,

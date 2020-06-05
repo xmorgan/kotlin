@@ -159,13 +159,14 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget>(
             task.group = BasePlugin.BUILD_GROUP
             task.description = "Compiles a klibrary from the '${compilation.name}' " +
                     "compilation for target '${compilation.platformType.name}'."
-            task.enabled = compilation.konanTarget.enabledOnCurrentHost
+            it.enabled = compilation.konanTarget.enabledOnCurrentHost
 
-            task.destinationDir = klibOutputDirectory(compilation)
-            task.addCompilerPlugins()
-            compilation.output.addClassesDir {
-                project.files(task.outputFile).builtBy(task)
-            }
+            it.destinationDir = klibOutputDirectory(compilation)
+        }
+
+
+        compilation.output.addClassesDir {
+            project.files(compileTaskProvider.map { it.outputFile })
         }
 
         project.tasks.getByName(compilation.compileAllTaskName).dependsOn(compileTask)
@@ -182,7 +183,8 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget>(
             createRegularKlibArtifact(compilation, compileTask)
         }
 
-        return compileTask
+
+        return compileTaskProvider
     }
 
     private fun Project.createCInteropTasks(compilation: KotlinNativeCompilation) {
