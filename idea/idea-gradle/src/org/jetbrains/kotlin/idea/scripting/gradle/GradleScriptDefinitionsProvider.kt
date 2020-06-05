@@ -10,6 +10,7 @@ import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
 import com.intellij.openapi.project.Project
 import com.intellij.util.EnvironmentUtil
 import com.intellij.util.PathUtil
+import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.idea.KotlinIdeaGradleBundle
 import org.jetbrains.kotlin.idea.core.script.ScriptDefinitionContributor
 import org.jetbrains.kotlin.idea.core.script.ScriptDefinitionSourceAsContributor
@@ -24,6 +25,7 @@ import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition
 import org.jetbrains.kotlin.scripting.definitions.getEnvironment
 import org.jetbrains.kotlin.scripting.resolve.KotlinScriptDefinitionFromAnnotatedTemplate
 import org.jetbrains.plugins.gradle.config.GradleSettingsListenerAdapter
+import org.jetbrains.plugins.gradle.service.GradleInstallationManager
 import org.jetbrains.plugins.gradle.settings.DistributionType
 import org.jetbrains.plugins.gradle.settings.GradleExecutionSettings
 import org.jetbrains.plugins.gradle.settings.GradleSettingsListener
@@ -238,10 +240,11 @@ class GradleScriptDefinitionsContributor(private val project: Project) : ScriptD
         ).map {
             it.asLegacyOrNull<KotlinScriptDefinitionFromAnnotatedTemplate>()?.let { legacyDef ->
                 // Expand scope for old gradle script definition
+                val version = GradleInstallationManager.getGradleVersion(gradleHome) ?: GradleVersion.current().version
                 GradleKotlinScriptDefinitionWrapper(
                     it.hostConfiguration,
                     legacyDef,
-                    projectSettings.resolveGradleVersion().version
+                    version
                 )
             } ?: it
         }

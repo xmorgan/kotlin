@@ -85,7 +85,7 @@ class GradleBuildRootsManager(val project: Project) : GradleBuildRootsLocator(),
         if (isConfigurationOutOfDate(file)) {
             showNotificationForProjectImport(project)
         } else {
-            hideNotificationForProjectImport(project)
+            scriptConfigurationsAreUpToDate(project)
         }
     }
 
