@@ -112,7 +112,7 @@ internal class KotlinProjectNpmResolver(
                 if (task.enabled) {
                     addTaskRequirements(task as RequiresNpmDependencies)
                     task.dependsOn(projectNpmResolver[task.compilation].packageJsonTaskHolder)
-                    task.dependsOn(projectNpmResolver.resolver.nodeJs.npmInstallTask)
+                    task.dependsOn(projectNpmResolver.resolver.nodeJs.npmInstallTaskProvider)
                 }
             }
         }

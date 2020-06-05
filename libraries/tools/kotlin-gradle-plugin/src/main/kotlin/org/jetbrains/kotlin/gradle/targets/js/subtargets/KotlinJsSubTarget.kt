@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.testing.internal.configureConventions
 import org.jetbrains.kotlin.gradle.testing.internal.kotlinTestRegistry
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
-import org.jetbrains.kotlin.gradle.utils.newFileProperty
 
 abstract class KotlinJsSubTarget(
     val target: KotlinJsTarget,
@@ -58,7 +57,9 @@ abstract class KotlinJsSubTarget(
 
         target.compilations.all {
             val npmProject = it.npmProject
-            it.compileKotlinTask.kotlinOptions.outputFile = npmProject.dir.resolve(npmProject.main).canonicalPath
+            it.kotlinOptions {
+                outputFile = npmProject.dir.resolve(npmProject.main).canonicalPath
+            }
         }
     }
 
@@ -93,19 +94,18 @@ abstract class KotlinJsSubTarget(
         )
 
         val testJs = project.registerTask<KotlinJsTest>(testRun.subtargetTestTaskName()) { testJs ->
-            val compileTask = compilation.compileKotlinTask
+            val compileTask = compilation.compileKotlinTaskProvider
 
             testJs.group = LifecycleBasePlugin.VERIFICATION_GROUP
             testJs.description = testTaskDescription
 
-            testJs.inputFileProperty.set(project.newFileProperty {
-                compileTask.outputFile
-            })
+            val compileOutputFile = compileTask.map { it.outputFile }
+            testJs.inputFileProperty.set(project.layout.file(compileOutputFile))
 
-            testJs.dependsOn(nodeJs.npmInstallTask, compileTask, nodeJs.nodeJsSetupTask)
+            testJs.dependsOn(nodeJs.npmInstallTaskProvider, compileTask, nodeJs.nodeJsSetupTaskProvider)
 
             testJs.onlyIf {
-                compileTask.outputFile.exists()
+                compileOutputFile.get().exists()
             }
 
             testJs.compilation = compilation
