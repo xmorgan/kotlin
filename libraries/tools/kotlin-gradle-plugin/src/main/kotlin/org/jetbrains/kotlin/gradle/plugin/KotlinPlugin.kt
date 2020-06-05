@@ -29,7 +29,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.Upload
 import org.gradle.api.tasks.compile.AbstractCompile
-import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
 import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.jetbrains.kotlin.gradle.dsl.*
@@ -207,20 +206,20 @@ internal class Kotlin2JvmSourceSetProcessor(
 
         ScriptingGradleSubplugin.configureForSourceSet(project, kotlinCompilation.compilationName)
 
-        // TODO: here, the tasks are always triggered for configuration; once the subplugins are able to work without task instances,
-        //       ensure that task configuration is properly avoided here;
         project.whenEvaluated {
-            val kotlinTaskInstance = kotlinTask.get()
-            val javaTask = javaSourceSet?.let { project.tasks.findByName(it.compileJavaTaskName) as JavaCompile }
-
             val subpluginEnvironment = SubpluginEnvironment.loadSubplugins(project, kotlinPluginVersion)
             val appliedPlugins = subpluginEnvironment.addSubpluginOptions(
-                project, kotlinTaskInstance, javaTask, null, null, kotlinCompilation
+                project,
+                kotlinCompilation
             )
 
             appliedPlugins
-                .flatMap { it.getSubpluginKotlinTasks(project, kotlinTaskInstance) }
-                .forEach { plugin -> kotlinCompilation.allKotlinSourceSets.forEach { sourceSet -> plugin.source(sourceSet.kotlin) } }
+                .flatMap { it.getPluginKotlinTasks(kotlinCompilation) }
+                .forEach { pluginTaskProvider ->
+                    pluginTaskProvider.configure { pluginTask ->
+                        kotlinCompilation.allKotlinSourceSets.forEach { sourceSet -> pluginTask.source(sourceSet.kotlin) }
+                    }
+                }
 
             javaSourceSet?.let { java ->
                 val javaTask = project.tasks.withType<AbstractCompile>().named(java.compileJavaTaskName)
@@ -274,29 +273,32 @@ internal class Kotlin2JsSourceSetProcessor(
         }
 
         // outputFile can be set later during the configuration phase, get it only after the phase:
-        project.runOnceAfterEvaluated("Kotlin2JsSourceSetProcessor.doTargetSpecificProcessing", kotlinTask) {
-            val kotlinTaskInstance = kotlinTask.get()
-            kotlinTaskInstance.kotlinOptions.outputFile = kotlinTaskInstance.outputFile.absolutePath
-            val outputDir = kotlinTaskInstance.outputFile.parentFile
+        project.whenEvaluated {
+            kotlinTask.configure { kotlinTaskInstance ->
+                kotlinTaskInstance.kotlinOptions.outputFile = kotlinTaskInstance.outputFile.absolutePath
+                val outputDir = kotlinTaskInstance.outputFile.parentFile
+                if (outputDir.isParentOf(project.rootDir))
+                    throw InvalidUserDataException(
+                        "The output directory '$outputDir' (defined by outputFile of $kotlinTaskInstance) contains or " +
+                                "matches the project root directory '${project.rootDir}'.\n" +
+                                "Gradle will not be able to build the project because of the root directory lock.\n" +
+                                "To fix this, consider using the default outputFile location instead of providing it explicitly."
+                    )
+                kotlinTaskInstance.destinationDir = outputDir
+            }
 
             val subpluginEnvironment: SubpluginEnvironment = SubpluginEnvironment.loadSubplugins(project, kotlinPluginVersion)
-            val appliedPlugins = subpluginEnvironment.addSubpluginOptions(
-                project, kotlinTaskInstance, null, null, null, kotlinCompilation
-            )
-
-            if (outputDir.isParentOf(project.rootDir))
-                throw InvalidUserDataException(
-                    "The output directory '$outputDir' (defined by outputFile of $kotlinTaskInstance) contains or " +
-                            "matches the project root directory '${project.rootDir}'.\n" +
-                            "Gradle will not be able to build the project because of the root directory lock.\n" +
-                            "To fix this, consider using the default outputFile location instead of providing it explicitly."
-                )
-
-            kotlinTaskInstance.destinationDir = outputDir
+            val appliedPlugins = subpluginEnvironment.addSubpluginOptions(project, kotlinCompilation)
 
             appliedPlugins
-                .flatMap { it.getSubpluginKotlinTasks(project, kotlinTaskInstance) }
-                .forEach { task -> kotlinCompilation.allKotlinSourceSets.forEach { sourceSet -> task.source(sourceSet.kotlin) } }
+                .flatMap { it.getPluginKotlinTasks(kotlinCompilation) }
+                .forEach { task ->
+                    task.configure { taskInstance ->
+                        kotlinCompilation.allKotlinSourceSets.forEach { sourceSet ->
+                            taskInstance.source(sourceSet.kotlin)
+                        }
+                    }
+                }
         }
     }
 }
@@ -352,16 +354,25 @@ internal class KotlinJsIrSourceSetProcessor(
                 }
             }
 
+        project.whenEvaluated {
+            val subpluginEnvironment: SubpluginEnvironment = SubpluginEnvironment.loadSubplugins(project, kotlinPluginVersion)
+            val appliedPlugins = subpluginEnvironment.addSubpluginOptions(project, kotlinCompilation)
+            appliedPlugins
+                .flatMap { it.getPluginKotlinTasks(kotlinCompilation) }
+                .forEach { task ->
+                    task.configure { taskInstance ->
+                        kotlinCompilation.allKotlinSourceSets.forEach { sourceSet ->
+                            taskInstance.source(sourceSet.kotlin)
+                        }
+                    }
+                }
+        }
+
         // outputFile can be set later during the configuration phase, get it only after the phase:
         project.runOnceAfterEvaluated("KotlinJsIrSourceSetProcessor.doTargetSpecificProcessing", kotlinTask) {
             val kotlinTaskInstance = kotlinTask.get()
             kotlinTaskInstance.kotlinOptions.outputFile = kotlinTaskInstance.outputFile.absolutePath
             val outputDir = kotlinTaskInstance.outputFile.parentFile
-
-            val subpluginEnvironment: SubpluginEnvironment = SubpluginEnvironment.loadSubplugins(project, kotlinPluginVersion)
-            val appliedPlugins = subpluginEnvironment.addSubpluginOptions(
-                project, kotlinTaskInstance, null, null, null, kotlinCompilation
-            )
 
             if (outputDir.isParentOf(project.rootDir))
                 throw InvalidUserDataException(
@@ -372,10 +383,6 @@ internal class KotlinJsIrSourceSetProcessor(
                 )
 
             kotlinTaskInstance.destinationDir = outputDir
-
-            appliedPlugins
-                .flatMap { it.getSubpluginKotlinTasks(project, kotlinTaskInstance) }
-                .forEach { task -> kotlinCompilation.allKotlinSourceSets.forEach { sourceSet -> task.source(sourceSet.kotlin) } }
         }
     }
 }
@@ -394,15 +401,18 @@ internal class KotlinCommonSourceSetProcessor(
             project.locateTask<Task>(kotlinCompilation.target.artifactsTaskName)?.dependsOn(kotlinTask)
         }
 
-        project.runOnceAfterEvaluated("KotlinCommonSourceSetProcessor.doTargetSpecificProcessing", kotlinTask) {
-            val kotlinTaskInstance = kotlinTask.get()
+        project.whenEvaluated {
             val subpluginEnvironment: SubpluginEnvironment = SubpluginEnvironment.loadSubplugins(project, kotlinPluginVersion)
-            val appliedPlugins = subpluginEnvironment.addSubpluginOptions(
-                project, kotlinTaskInstance, null, null, null, kotlinCompilation
-            )
+            val appliedPlugins = subpluginEnvironment.addSubpluginOptions(project, kotlinCompilation)
             appliedPlugins
-                .flatMap { it.getSubpluginKotlinTasks(project, kotlinTaskInstance) }
-                .forEach { kotlinCompilation.allKotlinSourceSets.forEach { sourceSet -> it.source(sourceSet.kotlin) } }
+                .flatMap { it.getPluginKotlinTasks(kotlinCompilation) }
+                .forEach { task ->
+                    task.configure { taskInstance ->
+                        kotlinCompilation.allKotlinSourceSets.forEach { sourceSet ->
+                            taskInstance.source(sourceSet.kotlin)
+                        }
+                    }
+                }
         }
     }
 
@@ -1038,14 +1048,9 @@ abstract class AbstractAndroidProjectHandler(private val kotlinConfigurationTool
         variantData: BaseVariant,
         subpluginEnvironment: SubpluginEnvironment
     ) {
-        val kotlinTask = project.tasks.getByName(compilation.compileKotlinTaskName) as KotlinCompile
-        val javaTask = getJavaTask(variantData)
-
-        val appliedPlugins = subpluginEnvironment.addSubpluginOptions(
-            project, kotlinTask, javaTask, wrapVariantDataForKapt(variantData), this, null
-        )
-
-        appliedPlugins.flatMap { it.getSubpluginKotlinTasks(project, kotlinTask) }
+        val appliedPlugins = subpluginEnvironment.addSubpluginOptions(project, compilation)
+        appliedPlugins
+            .flatMap { it.getPluginKotlinTasks(compilation) }
             .forEach { configureSources(it, variantData, null) }
     }
 
