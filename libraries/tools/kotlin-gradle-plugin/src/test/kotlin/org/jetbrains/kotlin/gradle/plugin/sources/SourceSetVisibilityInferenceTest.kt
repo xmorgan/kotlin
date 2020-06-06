@@ -298,7 +298,7 @@ class MockKotlinCompilation(
 
     //region Not implemented
     override val target: KotlinTarget get() = throw UnsupportedOperationException()
-    override val compileKotlinTaskProvider: TaskProvider<out KotlinCompile<KotlinCommonOptions>> = throw UnsupportedOperationException()
+    override val compileKotlinTaskProvider: TaskProvider<out KotlinCompile<KotlinCommonOptions>> get() = throw UnsupportedOperationException()
     override fun getAttributes(): AttributeContainer = throw UnsupportedOperationException()
     override fun dependencies(configure: KotlinDependencyHandler.() -> Unit) = throw UnsupportedOperationException()
     override fun dependencies(configureClosure: Closure<Any?>) = throw UnsupportedOperationException()
