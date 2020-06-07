@@ -47,17 +47,20 @@ import org.jetbrains.kotlin.utils.Printer
 import org.jetbrains.kotlin.utils.addToStdlib.flatMapToNullable
 import org.jetbrains.kotlin.utils.ifEmpty
 
-open class IndexedImports<I : KtImportInfo>(val imports: Array<I>) {
-    open fun importsForName(name: Name): Iterable<I> = imports.asIterable()
+interface IndexedImports<I : KtImportInfo> {
+    val imports: List<I>
+    fun importsForName(name: Name): Collection<I>
 }
 
-inline fun <reified I : KtImportInfo> makeAllUnderImportsIndexed(imports: Collection<I>) : IndexedImports<I> =
-    IndexedImports(imports.filter { it.isAllUnder }.toTypedArray())
+class AllUnderImportsIndexed<I : KtImportInfo>(allImports: Collection<I>) : IndexedImports<I> {
+    override val imports = allImports.filter { it.isAllUnder }
+    override fun importsForName(name: Name) = imports
+}
 
+class ExplicitImportsIndexed<I : KtImportInfo>(allImports: Collection<I>) : IndexedImports<I> {
+    override val imports = allImports.filter { !it.isAllUnder }
 
-class ExplicitImportsIndexed<I : KtImportInfo>(imports: Array<I>) : IndexedImports<I>(imports) {
-
-    private val nameToDirectives: ListMultimap<Name, I> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+    private val nameToDirectives: ListMultimap<Name, I> by lazy {
         val builder = ImmutableListMultimap.builder<Name, I>()
 
         for (directive in imports) {
@@ -70,9 +73,6 @@ class ExplicitImportsIndexed<I : KtImportInfo>(imports: Array<I>) : IndexedImpor
 
     override fun importsForName(name: Name) = nameToDirectives.get(name)
 }
-
-inline fun <reified I : KtImportInfo> makeExplicitImportsIndexed(imports: Collection<I>) : IndexedImports<I> =
-    ExplicitImportsIndexed(imports.filter { !it.isAllUnder }.toTypedArray())
 
 interface ImportForceResolver {
     fun forceResolveNonDefaultImports()

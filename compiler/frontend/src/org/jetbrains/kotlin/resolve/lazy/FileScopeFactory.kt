@@ -85,20 +85,20 @@ class FileScopeFactory(
         }
 
         val explicit = createDefaultImportResolver(
-            makeExplicitImportsIndexed(defaultImportsFiltered),
+            ExplicitImportsIndexed(defaultImportsFiltered),
             tempTrace,
             packageFragment = null,
             aliasImportNames = aliasImportNames
         )
         val allUnder = createDefaultImportResolver(
-            makeAllUnderImportsIndexed(defaultImportsFiltered),
+            AllUnderImportsIndexed(defaultImportsFiltered),
             tempTrace,
             packageFragment = null,
             aliasImportNames = aliasImportNames,
             excludedImports = analyzerServices.excludedImports
         )
         val lowPriority = createDefaultImportResolver(
-            makeAllUnderImportsIndexed(defaultLowPriorityImports.also { imports ->
+            AllUnderImportsIndexed(defaultLowPriorityImports.also { imports ->
                 assert(imports.all { it.isAllUnder }) { "All low priority imports must be all-under: $imports" }
             }),
             tempTrace,
@@ -142,9 +142,9 @@ class FileScopeFactory(
         val imports = file.importDirectives
         val aliasImportNames = imports.mapNotNull { if (it.aliasName != null) it.importedFqName else null }
 
-        val explicitImportResolver = createImportResolver(makeExplicitImportsIndexed(imports), bindingTrace, aliasImportNames, packageFragment)
+        val explicitImportResolver = createImportResolver(ExplicitImportsIndexed(imports), bindingTrace, aliasImportNames, packageFragment)
         val allUnderImportResolver = createImportResolver(
-            makeAllUnderImportsIndexed(imports),
+            AllUnderImportsIndexed(imports),
             bindingTrace,
             aliasImportNames,
             packageFragment
