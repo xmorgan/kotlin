@@ -49,8 +49,7 @@ class FunInterfaceConstructorsSyntheticScope(
         val classifier = scope.getContributedClassifier(name, location) ?: return emptyList()
         recordSamLookupsToClassifier(classifier, location)
 
-        val element = getSamConstructor(classifier)
-        return if (element != null) SmartList(element) else emptyList()
+        return listOfNotNull(getSamConstructor(classifier))
     }
 
     override fun getSyntheticConstructors(scope: ResolutionScope): Collection<FunctionDescriptor> =

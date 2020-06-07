@@ -177,10 +177,7 @@ class SamAdapterFunctionsScope(
         val classifier = scope.getContributedClassifier(name, location) ?: return emptyList()
         recordSamLookupsToClassifier(classifier, location)
 
-        if (!shouldGenerateAdditionalSamCandidate) {
-            val element = getSamConstructor(classifier)
-            return if (element != null) SmartList(element) else emptyList()
-        }
+        if (!shouldGenerateAdditionalSamCandidate) return listOfNotNull(getSamConstructor(classifier))
 
         return getAllSamConstructors(classifier)
     }
