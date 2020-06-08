@@ -823,7 +823,7 @@ tasks {
                 testTask.executeTests()
             }
             listOf(
-                getByPath(":kotlin-ultimate:ide:android-studio-native:test"),
+                getByPath(":kotlin-ultimate:ide:android-studio-native:test")
             ).forEach { task ->
                 if (task is Test) {
                     executeTest(task)
