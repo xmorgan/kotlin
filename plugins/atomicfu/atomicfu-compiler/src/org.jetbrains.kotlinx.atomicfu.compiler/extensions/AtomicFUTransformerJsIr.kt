@@ -82,12 +82,22 @@ class AtomicFUTransformer(override val context: IrPluginContext) : IrElementTran
         return super.visitProperty(property)
     }
 
-    override fun visitBlockBody(body: IrBlockBody): IrBody {
-        val parentDeclaration = (body as IrBlockBodyImpl).container
-        body.statements.forEachIndexed { i, stmt ->
-            body.statements[i] = stmt.transformStatement(parentDeclaration)
+    override fun visitFunction(declaration: IrFunction): IrStatement {
+        transformDeclarationBody(declaration.body, declaration)
+        return super.visitFunction(declaration)
+    }
+
+    override fun visitAnonymousInitializer(declaration: IrAnonymousInitializer): IrStatement {
+        transformDeclarationBody(declaration.body, declaration)
+        return super.visitAnonymousInitializer(declaration)
+    }
+
+    private fun transformDeclarationBody(body: IrBody?, parent: IrDeclaration) {
+        if (body is IrBlockBody) {
+            body.statements.forEachIndexed { i, stmt ->
+                body.statements[i] = stmt.transformStatement(parent)
+            }
         }
-        return super.visitBlockBody(body)
     }
 
     private fun IrExpression.transformAtomicValueInitializer(parentDeclaration: IrDeclaration) =
