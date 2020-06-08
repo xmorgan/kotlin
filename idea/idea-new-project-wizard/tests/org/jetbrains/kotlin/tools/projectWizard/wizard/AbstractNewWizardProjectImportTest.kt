@@ -132,6 +132,8 @@ abstract class AbstractNewWizardProjectImportTest : PlatformTestCase() {
     }
 
     protected fun checkScriptConfigurationsIfAny() {
+        if (is192()) return
+
         val settings = getGradleProjectSettings(project).firstOrNull() ?: error("Cannot find linked gradle project")
         val scripts = File(settings.externalProjectPath).walkTopDown().filter {
             it.name.endsWith("gradle.kts")
