@@ -83,7 +83,7 @@ class GradleBuildRootsManager(val project: Project) : GradleBuildRootsLocator(),
     @Suppress("MemberVisibilityCanBePrivate") // used in GradleImportHelper.kt.193
     fun checkUpToDate(file: VirtualFile) {
         if (isConfigurationOutOfDate(file)) {
-            showNotificationForProjectImport(project)
+            scriptConfigurationsNeedToBeUpdated(project, file)
         } else {
             scriptConfigurationsAreUpToDate(project)
         }

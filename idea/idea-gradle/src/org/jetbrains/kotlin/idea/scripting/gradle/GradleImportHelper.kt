@@ -15,6 +15,7 @@ import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
 import com.intellij.openapi.externalSystem.util.ExternalSystemUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
+import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.kotlin.idea.KotlinIcons
 import org.jetbrains.kotlin.idea.KotlinIdeaGradleBundle
 import org.jetbrains.kotlin.psi.UserDataProperty
@@ -36,7 +37,7 @@ fun runPartialGradleImport(project: Project) {
 fun getMissingConfigurationNotificationText() = KotlinIdeaGradleBundle.message("script.configurations.will.be.available.after.import")
 fun getMissingConfigurationActionText() = KotlinIdeaGradleBundle.message("action.label.import.project")
 
-fun autoReloadScriptConfigurations(project: Project): Boolean {
+private fun autoReloadScriptConfigurations(project: Project): Boolean {
     val gradleSettings = ExternalSystemApiUtil.getSettings(project, GradleConstants.SYSTEM_ID)
     val projectSettings = gradleSettings.getLinkedProjectsSettings()
         .filterIsInstance<GradleProjectSettings>()
@@ -52,7 +53,7 @@ private const val kotlinDslNotificationGroupId = "Gradle Kotlin DSL Scripts"
 private var Project.notificationPanel: ScriptConfigurationChangedNotification?
         by UserDataProperty<Project, ScriptConfigurationChangedNotification>(Key.create("load.script.configuration.panel"))
 
-fun showNotificationForProjectImport(project: Project) {
+fun scriptConfigurationsNeedToBeUpdated(project: Project, file: VirtualFile) {
     if (autoReloadScriptConfigurations(project)) {
         // import should be run automatically by Gradle plugin
         return
