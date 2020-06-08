@@ -100,11 +100,25 @@ public abstract class AnnotationCodegen {
 
     /**
      * @param returnType can be null if not applicable (e.g. {@code annotated} is a class)
+     * @param parameterContainer
      */
     public void genAnnotations(
             @Nullable Annotated annotated,
             @Nullable Type returnType,
             @Nullable KotlinType typeForTypeAnnotations
+    ) {
+        genAnnotations(annotated, returnType, typeForTypeAnnotations, null);
+    }
+
+    /**
+     * @param returnType can be null if not applicable (e.g. {@code annotated} is a class)
+     * @param parameterContainer
+     */
+    public void genAnnotations(
+            @Nullable Annotated annotated,
+            @Nullable Type returnType,
+            @Nullable KotlinType typeForTypeAnnotations,
+            @Nullable DeclarationDescriptorWithVisibility parameterContainer
     ) {
         if (annotated == null) return;
 
@@ -139,22 +153,23 @@ public abstract class AnnotationCodegen {
             }
         }
 
-        generateAdditionalAnnotations(annotated, returnType, annotationDescriptorsAlreadyPresent);
+        generateAdditionalAnnotations(annotated, returnType, annotationDescriptorsAlreadyPresent, parameterContainer);
         generateTypeAnnotations(annotated, typeForTypeAnnotations);
     }
 
     private void generateAdditionalAnnotations(
             @NotNull Annotated annotated,
             @Nullable Type returnType,
-            @NotNull Set<String> annotationDescriptorsAlreadyPresent
+            @NotNull Set<String> annotationDescriptorsAlreadyPresent,
+            @Nullable DeclarationDescriptorWithVisibility parameterContainer
     ) {
         if (annotated instanceof CallableDescriptor) {
-            generateAdditionalCallableAnnotations((CallableDescriptor) annotated, returnType, annotationDescriptorsAlreadyPresent);
+            generateAdditionalCallableAnnotations((CallableDescriptor) annotated, returnType, annotationDescriptorsAlreadyPresent, parameterContainer);
         }
         else if (annotated instanceof FieldDescriptor) {
             generateAdditionalCallableAnnotations(
-                    ((FieldDescriptor) annotated).getCorrespondingProperty(), returnType, annotationDescriptorsAlreadyPresent
-            );
+                    ((FieldDescriptor) annotated).getCorrespondingProperty(), returnType, annotationDescriptorsAlreadyPresent,
+                    parameterContainer);
         }
         else if (annotated instanceof ClassDescriptor) {
             generateAdditionalClassAnnotations(annotationDescriptorsAlreadyPresent, (ClassDescriptor) annotated);
@@ -164,11 +179,15 @@ public abstract class AnnotationCodegen {
     private void generateAdditionalCallableAnnotations(
             @NotNull CallableDescriptor descriptor,
             @Nullable Type returnType,
-            @NotNull Set<String> annotationDescriptorsAlreadyPresent
+            @NotNull Set<String> annotationDescriptorsAlreadyPresent,
+            @Nullable DeclarationDescriptorWithVisibility parameterContainer
     ) {
         // No need to annotate privates, synthetic accessors and their parameters
         if (isInvisibleFromTheOutside(descriptor)) return;
-        if (descriptor instanceof ValueParameterDescriptor && isInvisibleFromTheOutside(descriptor.getContainingDeclaration())) return;
+        if (descriptor instanceof ParameterDescriptor &&
+            isInvisibleFromTheOutside(parameterContainer != null ? parameterContainer : descriptor.getContainingDeclaration())) {
+            return;
+        }
 
         // No need to annotate annotation methods since they're always non-null
         if (descriptor instanceof PropertyGetterDescriptor &&
