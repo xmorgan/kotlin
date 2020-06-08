@@ -114,7 +114,7 @@ data class LightMemberOriginForCompiledMethod(val psiMethod: PsiMethod, val file
     }
 }
 
-private fun findDeclarationInCompiledFile(file: KtClsFile, member: PsiMember, signature: MemberSignature): KtDeclaration? {
+fun findDeclarationInCompiledFile(file: KtClsFile, member: PsiMember, signature: MemberSignature): KtDeclaration? {
     val relativeClassName = member.relativeClassName()
     val key = ClassNameAndSignature(relativeClassName, signature)
 

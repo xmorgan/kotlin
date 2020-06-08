@@ -5,25 +5,33 @@
 
 package org.jetbrains.kotlin.idea.caches.lightClasses
 
+import com.intellij.navigation.ItemPresentation
+import com.intellij.navigation.ItemPresentationProviders
 import com.intellij.openapi.util.Iconable
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
-import com.intellij.psi.impl.PsiImplUtil
 import com.intellij.psi.impl.compiled.ClsClassImpl
-import com.intellij.psi.util.PsiClassUtil
-import com.intellij.util.containers.map2Array
+import com.intellij.psi.search.SearchScope
+import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
 import org.jetbrains.kotlin.asJava.classes.KtLightClassBase
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.asJava.elements.KtLightElementBase
-import org.jetbrains.kotlin.asJava.elements.KtLightFieldImpl
-import org.jetbrains.kotlin.asJava.elements.KtLightMember
-import org.jetbrains.kotlin.asJava.elements.KtLightMethodImpl
+import org.jetbrains.kotlin.asJava.elements.*
+import org.jetbrains.kotlin.asJava.propertyNameByAccessor
+import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.idea.decompiler.classFile.KtClsFile
 import org.jetbrains.kotlin.load.java.structure.LightClassOriginKind
+import org.jetbrains.kotlin.load.kotlin.MemberSignature
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.type.MapPsiToAsmDesc
 import javax.swing.Icon
+
+inline fun <T, reified R> Array<out T>.map2Array(transform: (T) -> R): Array<R> =
+    Array(this.size) { i -> transform(this[i]) }
 
 class KtLightElementImpl<T : PsiMember>(private val origin: LightMemberOriginForCompiledElement<T>, parent: PsiElement) :
     KtLightElementBase(parent) {
@@ -80,7 +88,7 @@ open class PsiClassWrapper(private val clsDelegate: PsiClass, private val parent
 
 @Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE")
 open class PsiMethodWrapper(private val funDelegate: PsiMethod, private val parent: PsiElement) :
-    PsiMethod by funDelegate {
+    PsiMethod by funDelegate, PsiAnnotationMethod {
 
 //    private val _parameterList: PsiParameterList by lazyPub {
 //        PsiParameterListWrapper(funDelegate.parameterList, this)
@@ -97,6 +105,9 @@ open class PsiMethodWrapper(private val funDelegate: PsiMethod, private val pare
     override fun getParent(): PsiElement = parent
     override fun copy(): PsiElement = this
     override fun toString(): String = funDelegate.toString()
+
+    override fun getDefaultValue(): PsiAnnotationMemberValue? = (funDelegate as? PsiAnnotationMethod)?.defaultValue
+
     override fun hashCode(): Int = funDelegate.hashCode()
     override fun equals(other: Any?): Boolean =
         this === other || other is PsiMethodWrapper && other.funDelegate == funDelegate
@@ -206,148 +217,241 @@ class PsiMethodLightElementWrapper(
     }
 }
 
+@Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE")
+class FUN(
+    private val funDelegate: PsiMethod,
+    private val funParent: KtLightClass,
+    file: KtClsFile,
+    override val kotlinOrigin: KtNamedFunction?
+) : PsiMethodWrapper(funDelegate, funParent), KtLightMethod, KtLightMember<PsiMethod>,
+    ElementSupportTrait<KtNamedFunction, KtLightClass> by ElementSupportTrait.Instance(kotlinOrigin, funParent) {
+
+    //CP
+    override val isMangled: Boolean
+        get() {
+            val demangledName = KotlinTypeMapper.InternalNameMapper.demangleInternalName(name) ?: return false
+            val originalName = propertyNameByAccessor(demangledName, this) ?: demangledName
+            return originalName == kotlinOrigin?.name
+        }
+
+    override fun getPresentation(): ItemPresentation? =
+        (kotlinOrigin ?: this).let { ItemPresentationProviders.getItemPresentation(it) }
+
+
+    override fun equals(other: Any?): Boolean = other is FUN && kotlinOrigin == other.kotlinOrigin
+    override fun hashCode(): Int = funDelegate.hashCode()
+    override fun copy(): PsiElement = this
+    override fun toString(): String = "${this.javaClass.simpleName} of $parent"
+
+    override val clsDelegate: PsiMethod = funDelegate
+    override val lightMemberOrigin: LightMemberOrigin? = LightMemberOriginForCompiledMethod(funDelegate, file)
+
+    override fun getContainingClass(): KtLightClass = funParent
+}
+
 
 @Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE")
-open class PsiClassLightElementWrapper(
-    private val clsDelegate: PsiClass,
-    private val parent: PsiElement,
-    val lightElementDelegate: KtLightElementImpl<PsiClass>,
-    protected val file: KtClsFile,
-) :
-    PsiClassWrapper(clsDelegate, parent),
-    NavigatablePsiElement by lightElementDelegate,
-    Iconable by lightElementDelegate,
-    Cloneable {
+class FLD(
+    private val fldDelegate: PsiField,
+    private val fldParent: KtLightClass,
+    file: KtClsFile,
+    override val kotlinOrigin: KtDeclaration?
+) : PsiFieldWrapper(fldDelegate, fldParent), KtLightField, KtLightMember<PsiField>,
+    ElementSupportTrait<KtDeclaration, KtLightClass> by ElementSupportTrait.Instance(kotlinOrigin, fldParent) {
 
-    override fun getName(): String? = super.getName()
-    override fun getIcon(flags: Int): Icon? = lightElementDelegate.getIcon(flags)
-    override fun getNavigationElement() = lightElementDelegate.kotlinOrigin?.navigationElement ?: parent
-    override fun hashCode(): Int = super.hashCode()
+    override fun getPresentation(): ItemPresentation? =
+        (kotlinOrigin ?: this).let { ItemPresentationProviders.getItemPresentation(it) }
 
-    override fun equals(other: Any?): Boolean =
-        other is PsiClassLightElementWrapper &&
-                super.equals(other) &&
-                lightElementDelegate.kotlinOrigin == other.lightElementDelegate.kotlinOrigin
+    override fun equals(other: Any?): Boolean = other is FUN && kotlinOrigin == other.kotlinOrigin
+    override fun hashCode(): Int = fldDelegate.hashCode()
+    override fun copy(): PsiElement = this
+    override fun toString(): String = "${this.javaClass.simpleName} of $parent"
 
-    override fun isEquivalentTo(another: PsiElement?): Boolean {
-        return this == another ||
-                lightElementDelegate.isEquivalentTo(another) ||
-                (another is KtLightMember<*> && lightElementDelegate.isEquivalentTo(another.lightMemberOrigin?.originalElement))
-    }
+    override val clsDelegate: PsiField = fldDelegate
+    override val lightMemberOrigin: LightMemberOrigin? = LightMemberOriginForCompiledField(fldDelegate, file)
 
-    private val _methods: Array<PsiMethod> by lazyPub {
-        clsDelegate.methods.map2Array {
-            val elementImpl = KtLightElementImpl(LightMemberOriginForCompiledMethod(it, file), this)
-            PsiMethodLightElementWrapper(it, this, elementImpl)
-        }
-    }
-    private val _fields: Array<PsiField> by lazyPub {
-        clsDelegate.fields.map2Array {
-            val elementImpl = KtLightElementImpl(LightMemberOriginForCompiledField(it, file), this)
-            PsiFieldLightElementWrapper(it, this, elementImpl)
-        }
-    }
-    private val _constructors: Array<PsiMethod> by lazyPub {
-        PsiImplUtil.getConstructors(this)
-    }
+    override fun computeConstantValue(p0: MutableSet<PsiVariable>?): Any? = fldDelegate.computeConstantValue()
 
-    override fun getConstructors(): Array<PsiMethod> = _constructors
-
-    protected open fun createClassWrapper(
-        clsDelegate: PsiClass,
-        kotlinOrigin: KtClassOrObject?,
-    ): PsiClassLightElementWrapper {
-
-        val elementDelegate = KtLightElementImpl(
-            origin = LightMemberOriginForCompiledClass(kotlinOrigin, clsDelegate),
-            parent = this
-        )
-
-        return PsiClassLightElementWrapper(
-            clsDelegate = clsDelegate,
-            parent = this,
-            lightElementDelegate = elementDelegate,
-            file = file
-        )
-    }
-
-    private val _innerClasses: Array<PsiClass> by lazyPub {
-        clsDelegate.innerClasses.map2Array { psiClass ->
-            val innerDeclaration = (lightElementDelegate.kotlinOrigin as? KtClassOrObject)
-                ?.declarations
-                ?.filterIsInstance<KtClassOrObject>()
-                ?.firstOrNull { it.name == clsDelegate.name }
-
-            createClassWrapper(psiClass, innerDeclaration)
-        }
-    }
-
-    override fun getInnerClasses(): Array<PsiClass> = _innerClasses
-    override fun getMethods(): Array<PsiMethod> = _methods
-    override fun getFields(): Array<PsiField> = _fields
+    override fun getContainingClass(): KtLightClass = fldParent
 }
 
+
+
+interface ElementSupportTrait<O : KtDeclaration?, P : PsiElement>: Cloneable{
+
+    class Instance<O1 : KtDeclaration, P1 : PsiElement>(
+        override val kotlinOrigin: O1?,
+        override val parentElement: P1
+    ) : ElementSupportTrait<O1, P1> {
+        override fun isEquivalentTo(another: PsiElement?): Boolean {
+            return this == another ||
+                    kotlinOrigin?.let { another is ElementSupportTrait<*, *> && it.isEquivalentTo(another.kotlinOrigin) } ?: false
+        }
+
+        override fun clone(): Any = this
+        override fun getParent(): PsiElement = parentElement
+        override fun getText(): String = kotlinOrigin?.text ?: ""
+        override fun getTextRange(): TextRange = kotlinOrigin?.textRange ?: TextRange.EMPTY_RANGE
+        override fun getTextOffset() = kotlinOrigin?.textOffset ?: 0
+        override fun getStartOffsetInParent() = kotlinOrigin?.startOffsetInParent ?: 0
+        override fun isWritable(): Boolean = false
+        override fun getUseScope() = kotlinOrigin?.useScope ?: parentElement.useScope
+        override fun getContainingFile(): PsiFile = parentElement.containingFile
+        override fun isValid(): Boolean = parentElement.isValid && (kotlinOrigin?.isValid != false)
+
+        override fun findElementAt(offset: Int): PsiElement? = kotlinOrigin?.findElementAt(offset)
+        override fun getNavigationElement(): PsiElement = kotlinOrigin?.navigationElement ?: parentElement
+    }
+
+    val kotlinOrigin: O?
+    val parentElement: P
+
+    fun isEquivalentTo(another: PsiElement?): Boolean
+    fun getParent(): PsiElement
+    fun getText(): String
+    fun getTextRange(): TextRange
+    fun getTextOffset(): Int
+    fun getStartOffsetInParent(): Int
+    fun isWritable(): Boolean
+    fun getUseScope(): SearchScope
+    fun getContainingFile(): PsiFile
+    fun isValid(): Boolean
+    fun findElementAt(offset: Int): PsiElement?
+    fun getNavigationElement(): PsiElement
+}
+
+@Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE")
 class KtLightClassForDecompiledDeclaration(
     override val clsDelegate: PsiClass,
-    override val kotlinOrigin: KtClassOrObject?,
-    file: KtClsFile,
-) : PsiClassLightElementWrapper(
-    clsDelegate = clsDelegate,
-    parent = file,
-    lightElementDelegate = KtLightElementImpl(
-        origin = LightMemberOriginForCompiledClass(element = kotlinOrigin, psiClass = clsDelegate),
-        parent = file,
-    ),
-    file = file,
-), KtLightClass {
-    val fqName = kotlinOrigin?.fqName ?: FqName(clsDelegate.qualifiedName.orEmpty())
-
-    override val originKind: LightClassOriginKind = LightClassOriginKind.BINARY
-
-    override fun createClassWrapper(clsDelegate: PsiClass, kotlinOrigin: KtClassOrObject?): PsiClassLightElementWrapper =
-        KtLightClassForDecompiledDeclaration(clsDelegate, kotlinOrigin, file)
-}
-
-
-class KtLightClassForDecompiledDeclaration1(
-    override val clsDelegate: ClsClassImpl,
-    override val kotlinOrigin: KtClassOrObject?,
+    private val clsParent: PsiElement,
     private val file: KtClsFile,
-) : KtLightClassBase(clsDelegate.manager) {
+    kotlinOrigin: KtClassOrObject?
+) : KtLightClassBase(clsDelegate.manager), Cloneable,
+    ElementSupportTrait<KtClassOrObject, PsiElement> by ElementSupportTrait.Instance(kotlinOrigin, clsParent) {
+
+    constructor(
+        clsDelegate: PsiClass,
+        kotlinOrigin: KtClassOrObject?,
+        file: KtClsFile
+    ) : this(
+        clsDelegate = clsDelegate,
+        clsParent = file,
+        file = file,
+        kotlinOrigin = kotlinOrigin
+    )
+
     val fqName = kotlinOrigin?.fqName ?: FqName(clsDelegate.qualifiedName.orEmpty())
 
-    override fun copy() = this
+    private fun findMethodDeclaration(psiMethod: PsiMethod): KtNamedFunction? {
+        val desc = MapPsiToAsmDesc.methodDesc(psiMethod)
+        val name = if (psiMethod.isConstructor) "<init>" else psiMethod.name
+        val signature = MemberSignature.fromMethodNameAndDesc(name, desc)
+        return findDeclarationInCompiledFile(file, psiMethod, signature) as? KtNamedFunction
+    }
 
-    override fun getOwnInnerClasses(): List<PsiClass> {
-        val nestedClasses = kotlinOrigin?.declarations?.filterIsInstance<KtClassOrObject>() ?: emptyList()
-        return clsDelegate.ownInnerClasses.map { innerClsClass ->
-            KtLightClassForDecompiledDeclaration(
-                innerClsClass as ClsClassImpl,
-                nestedClasses.firstOrNull { innerClsClass.name == it.name }, file,
+    private fun findFieldDeclaration(psiField: PsiField): KtDeclaration? {
+        val desc = MapPsiToAsmDesc.typeDesc(psiField.type)
+        val signature = MemberSignature.fromFieldNameAndDesc(psiField.name, desc)
+        return findDeclarationInCompiledFile(file, psiField, signature)
+    }
+
+    private val _methods: List<PsiMethod> by lazyPub {
+        clsDelegate.methods.map { psiMethod ->
+            FUN(
+                funDelegate = psiMethod,
+                funParent = this,
+                file = file,
+                kotlinOrigin = findMethodDeclaration(psiMethod)
             )
         }
     }
 
-    override fun getOwnFields(): List<PsiField> {
-        return clsDelegate.ownFields.map { KtLightFieldImpl.create(LightMemberOriginForCompiledField(it, file), it, this) }
+    private val _fields: List<PsiField> by lazyPub {
+        clsDelegate.fields.map { psiField ->
+            FLD(
+                fldDelegate = psiField,
+                fldParent = this,
+                file = file,
+                kotlinOrigin = findFieldDeclaration(psiField)
+            )
+        }
     }
 
-    override fun getOwnMethods(): List<PsiMethod> {
-        return clsDelegate.ownMethods.map { KtLightMethodImpl.create(it, LightMemberOriginForCompiledMethod(it, file), this) }
+    override fun getOwnFields(): List<PsiField> = _fields
+    override fun getOwnMethods(): List<PsiMethod> = _methods
+    override fun getOwnInnerClasses(): List<PsiClass> = _innerClasses
+
+    private val _innerClasses: List<PsiClass> by lazyPub {
+        clsDelegate.innerClasses.map { psiClass ->
+            val innerDeclaration = kotlinOrigin
+                ?.declarations
+                ?.filterIsInstance<KtClassOrObject>()
+                ?.firstOrNull { it.name == clsDelegate.name }
+
+            KtLightClassForDecompiledDeclaration(
+                clsDelegate = psiClass,
+                clsParent = this,
+                file = file,
+                kotlinOrigin = innerDeclaration
+            )
+        }
     }
 
-    override fun getNavigationElement() = kotlinOrigin?.navigationElement ?: file
+    override fun equals(other: Any?): Boolean = other is KtLightClassForDecompiledDeclaration && kotlinOrigin == other.kotlinOrigin
+    override fun hashCode(): Int = clsDelegate.hashCode()
+    override fun copy(): PsiElement = this
+    override fun toString(): String = "${this.javaClass.simpleName} of $parent"
 
-    override fun getParent() = clsDelegate.parent
+    override fun getPresentation(): ItemPresentation? =
+        (kotlinOrigin ?: this).let { ItemPresentationProviders.getItemPresentation(it) }
 
-    override fun equals(other: Any?): Boolean =
-        other is KtLightClassForDecompiledDeclaration &&
-                fqName == other.fqName
-
-    override fun hashCode(): Int =
-        fqName.hashCode()
-
-    override val originKind: LightClassOriginKind
-        get() = LightClassOriginKind.BINARY
+    override val originKind: LightClassOriginKind = LightClassOriginKind.BINARY
 }
+
+
+
+
+
+
+    class KtLightClassForDecompiledDeclaration1(
+        override val clsDelegate: ClsClassImpl,
+        override val kotlinOrigin: KtClassOrObject?,
+        private val file: KtClsFile,
+    ) : KtLightClassBase(clsDelegate.manager) {
+        val fqName = kotlinOrigin?.fqName ?: FqName(clsDelegate.qualifiedName.orEmpty())
+
+        override fun copy() = this
+
+        override fun getOwnInnerClasses(): List<PsiClass> {
+            val nestedClasses = kotlinOrigin?.declarations?.filterIsInstance<KtClassOrObject>() ?: emptyList()
+            return clsDelegate.ownInnerClasses.map { innerClsClass ->
+                KtLightClassForDecompiledDeclaration(
+                    innerClsClass as ClsClassImpl,
+                    nestedClasses.firstOrNull { innerClsClass.name == it.name }, file,
+                )
+            }
+        }
+
+        override fun getOwnFields(): List<PsiField> {
+            return clsDelegate.ownFields.map { KtLightFieldImpl.create(LightMemberOriginForCompiledField(it, file), it, this) }
+        }
+
+        override fun getOwnMethods(): List<PsiMethod> {
+            return clsDelegate.ownMethods.map { KtLightMethodImpl.create(it, LightMemberOriginForCompiledMethod(it, file), this) }
+        }
+
+        override fun getNavigationElement() = kotlinOrigin?.navigationElement ?: file
+
+        override fun getParent() = clsDelegate.parent
+
+        override fun equals(other: Any?): Boolean =
+            other is KtLightClassForDecompiledDeclaration &&
+                    fqName == other.fqName
+
+        override fun hashCode(): Int =
+            fqName.hashCode()
+
+        override val originKind: LightClassOriginKind
+            get() = LightClassOriginKind.BINARY
+    }
 
