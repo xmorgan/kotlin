@@ -806,6 +806,36 @@ tasks {
         }
     }
 
+    register("kmmTest") {
+        dependsOn("dist")
+        doLast {
+            val patterns = File("tests/kmm/kmm-tests.csv")
+                .readLines()
+                .asSequence()
+                .map { it.trim().split(',') }
+                .filter { it.isNotEmpty() }
+                .drop(1)
+                .groupBy({ it[1].trim() }, { it[0].trim() })
+            val executeTest = { testTask: Test ->
+                patterns["exclude"]?.let { testTask.exclude(it) }
+                patterns["include"]?.let { testTask.include(it) }
+                testTask.filter { isFailOnNoMatchingTests = false }
+                testTask.executeTests()
+            }
+            listOf(
+                getByPath(":kotlin-ultimate:ide:android-studio-native:test"),
+            ).forEach { task ->
+                if (task is Test) {
+                    executeTest(task)
+                } else {
+                    task.taskDependencies.getDependencies(null).filterIsInstance<Test>().forEach { subTask ->
+                        executeTest(subTask)
+                    }
+                }
+            }
+        }
+    }
+
     register("test") {
         doLast {
             throw GradleException("Don't use directly, use aggregate tasks *-check instead")
