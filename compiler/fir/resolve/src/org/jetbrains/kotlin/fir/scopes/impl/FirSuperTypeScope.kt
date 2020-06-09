@@ -246,6 +246,7 @@ class FirSuperTypeScope private constructor(
         processor: (FirFunctionSymbol<*>) -> ProcessorAction
     ): ProcessorAction {
         for (scope in scopes) {
+            if (scope !is FirOverrideAwareScope) continue
             if (!scope.processOverriddenFunctions(functionSymbol, processor)) return ProcessorAction.STOP
         }
 

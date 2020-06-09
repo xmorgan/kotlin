@@ -15,8 +15,26 @@ abstract class FirOverrideAwareScope : FirScope() {
     //
     // The idea behind this class and abstract override is to explicitly state that those implementations should implement this method properly
     // and use other FirOverrideAwareScope when delegating to them (as in FirClassSubstitutionScope)
-    abstract override fun processOverriddenFunctions(
+    abstract fun processOverriddenFunctions(
         functionSymbol: FirFunctionSymbol<*>,
         processor: (FirFunctionSymbol<*>) -> ProcessorAction
     ): ProcessorAction
+
+    // This is just a helper for a common implementation
+    protected fun doProcessOverriddenFunctions(
+        functionSymbol: FirFunctionSymbol<*>,
+        processor: (FirFunctionSymbol<*>) -> ProcessorAction,
+        directOverriddenMap: Map<FirFunctionSymbol<*>, Collection<FirFunctionSymbol<*>>>,
+        baseScope: FirOverrideAwareScope
+    ): ProcessorAction {
+        val directOverridden =
+            directOverriddenMap[functionSymbol] ?: return baseScope.processOverriddenFunctions(functionSymbol, processor)
+
+        for (overridden in directOverridden) {
+            if (!processor(overridden)) return ProcessorAction.STOP
+            if (!baseScope.processOverriddenFunctions(overridden, processor)) return ProcessorAction.STOP
+        }
+
+        return ProcessorAction.NEXT
+    }
 }
