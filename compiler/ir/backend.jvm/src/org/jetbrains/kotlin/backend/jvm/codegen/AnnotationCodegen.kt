@@ -191,13 +191,7 @@ abstract class AnnotationCodegen(
             return null
         }
 
-        // It's necessary for proper recovering of classId by plain string JVM descriptor when loading annotations
-        // See FileBasedKotlinClass.convertAnnotationVisitor
-        generateSequence<IrDeclaration>(annotationClass) { it.parent as? IrDeclaration }.takeWhile { !it.isTopLevelDeclaration }.forEach {
-            if (it is IrClass) {
-                classCodegen.addInnerClass(it)
-            }
-        }
+        addInnerClassInfo(annotationClass)
 
         val asmTypeDescriptor = typeMapper.mapType(annotation.type).descriptor
         val annotationVisitor =
@@ -208,6 +202,16 @@ abstract class AnnotationCodegen(
         annotationVisitor.visitEnd()
 
         return asmTypeDescriptor
+    }
+
+    private fun addInnerClassInfo(klass: IrClass) {
+        // It's necessary for proper recovering of classId by plain string JVM descriptor when loading annotations
+        // See FileBasedKotlinClass.convertAnnotationVisitor
+        generateSequence<IrDeclaration>(klass) { it.parent as? IrDeclaration }.takeWhile { !it.isTopLevelDeclaration }.forEach {
+            if (it is IrClass) {
+                classCodegen.addInnerClass(it)
+            }
+        }
     }
 
     private fun genAnnotationArguments(annotation: IrConstructorCall, annotationVisitor: AnnotationVisitor) {
@@ -250,7 +254,7 @@ abstract class AnnotationCodegen(
                         val annotationClassType = callee.returnType
                         val internalAnnName = typeMapper.mapType(annotationClassType).descriptor
                         val visitor = annotationVisitor.visitAnnotation(name, internalAnnName)
-                        annotationClassType.classOrNull?.owner?.let(innerClassConsumer::addInnerClassInfoFromAnnotation)
+                        annotationClassType.classOrNull?.owner?.let(::addInnerClassInfo)
                         genAnnotationArguments(value, visitor)
                         visitor.visitEnd()
                     }
@@ -260,7 +264,7 @@ abstract class AnnotationCodegen(
             is IrGetEnumValue -> {
                 val enumEntry = value.symbol.owner
                 val enumClass = enumEntry.parentAsClass
-                innerClassConsumer.addInnerClassInfoFromAnnotation(enumClass)
+                addInnerClassInfo(enumClass)
                 annotationVisitor.visitEnum(name, typeMapper.mapClass(enumClass).descriptor, enumEntry.name.asString())
             }
             is IrVararg -> { // array constructor
@@ -272,7 +276,7 @@ abstract class AnnotationCodegen(
             }
             is IrClassReference -> {
                 val classType = value.classType
-                classType.classOrNull?.owner?.let(innerClassConsumer::addInnerClassInfoFromAnnotation)
+                classType.classOrNull?.owner?.let(::addInnerClassInfo)
                 annotationVisitor.visit(name, typeMapper.mapType(classType))
             }
             is IrErrorExpression -> error("Don't know how to compile annotation value ${ir2string(value)}")
