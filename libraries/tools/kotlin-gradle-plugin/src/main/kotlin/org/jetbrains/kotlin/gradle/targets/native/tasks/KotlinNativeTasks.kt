@@ -916,7 +916,7 @@ internal class CacheBuilder(val project: Project, val binary: NativeBinary) {
 
         internal fun getCacheFileName(baseName: String, cacheKind: NativeCacheKind, konanTarget: KonanTarget): String =
             cacheKind.outputKind?.let {
-                "${it.prefix(konanTarget)}${baseName}-cache${it.suffix(konanTarget)}"
+                "${baseName}-cache/${it.prefix(konanTarget)}${baseName}-cache${it.suffix(konanTarget)}"
             } ?: error("No output for kind $cacheKind")
 
         internal fun cacheWorksFor(target: KonanTarget) =
