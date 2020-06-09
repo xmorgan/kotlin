@@ -246,8 +246,6 @@
 
     <projectService serviceImplementation="org.jetbrains.kotlin.idea.compiler.configuration.KotlinCompilerSettings"/>
 
-    <projectService serviceImplementation="org.jetbrains.kotlin.idea.parameterInfo.custom.KotlinCodeHintsModel"/>
-
     <projectService serviceImplementation="org.jetbrains.kotlin.idea.compiler.configuration.KotlinCompilerWorkspaceSettings"/>
 
     <projectService serviceImplementation="org.jetbrains.kotlin.asJava.classes.FacadeCache"/>
@@ -342,7 +340,6 @@
     <lang.psiStructureViewFactory language="kotlin" implementationClass="org.jetbrains.kotlin.idea.structureView.KotlinStructureViewFactory"/>
     <structureViewBuilder order="first" key="CLASS" factoryClass="org.jetbrains.kotlin.idea.structureView.KtClsStructureViewBuilderProvider"/>
     <editorNotificationProvider implementation="org.jetbrains.kotlin.idea.script.configuration.MultipleScriptDefinitionsChecker"/>
-    <editor.linePainter order="first" implementation="org.jetbrains.kotlin.idea.parameterInfo.custom.ReturnHintLinePainter"/>
 
     <lang.foldingBuilder language="kotlin" implementationClass="org.jetbrains.kotlin.idea.KotlinFoldingBuilder"/>
     <lang.formatter language="kotlin" implementationClass="org.jetbrains.kotlin.idea.formatter.KotlinFormattingModelBuilder"/>
@@ -1597,10 +1594,6 @@
     <intentionAction>
       <className>org.jetbrains.kotlin.idea.intentions.ConvertLateinitPropertyToNullableIntention</className>
       <category>Kotlin</category>
-    </intentionAction>
-
-    <intentionAction>
-      <className>org.jetbrains.kotlin.idea.parameterInfo.custom.DisableReturnLambdaHintOptionAction</className>
     </intentionAction>
 
     <intentionAction>
