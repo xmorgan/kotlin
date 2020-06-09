@@ -73,6 +73,8 @@ public actual fun CharSequence.regionMatches(thisOffset: Int, other: CharSequenc
  * Returns a copy of this string having its first letter uppercased, or the original string,
  * if it's empty or already starts with an upper case letter.
  *
+ * Note that only the first [Char] is uppercased, thus supplementary characters are not handled.
+ *
  * @sample samples.text.Strings.capitalize
  */
 public actual fun String.capitalize(): String {

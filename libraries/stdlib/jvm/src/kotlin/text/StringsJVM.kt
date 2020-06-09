@@ -569,14 +569,16 @@ public inline fun String.toPattern(flags: Int = 0): java.util.regex.Pattern {
 }
 
 /**
- * Returns a copy of this string having its first letter uppercased, or the original string,
+ * Returns a copy of this string having its first letter titlecased preferring [Char.toTitleCase] (if different from
+ * [Char.toUpperCase]) or by [String.toUpperCase] using the default locale, or the original string,
  * if it's empty or already starts with an upper case letter.
+ *
+ * Note that only the first [Char] is titlecased, thus supplementary characters are not handled.
  *
  * @sample samples.text.Strings.capitalize
  */
-public actual fun String.capitalize(): String {
-    return if (isNotEmpty() && this[0].isLowerCase()) substring(0, 1).toUpperCase() + substring(1) else this
-}
+@OptIn(ExperimentalStdlibApi::class)
+public actual fun String.capitalize(): String = capitalize(Locale.getDefault())
 
 /**
  * Returns a copy of this string having its first letter titlecased preferring [Char.toTitleCase] (if different from

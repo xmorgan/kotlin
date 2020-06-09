@@ -74,6 +74,15 @@ class StringJVMTest {
         assertEquals("UTF-32BE", Charsets.UTF_32BE.name())
     }
 
+    @Test fun capitalize() {
+        // Case mapping that results in multiple characters (validating Character.toUpperCase was not used).
+        assertEquals("SSßß", "ßßß".capitalize())
+
+        // Case mapping where title case is different than uppercase and so Character.toTitleCase is preferred.
+        assertEquals("ǲǳǳ", "ǳǳǳ".capitalize())
+        assertEquals("ǱǱǱ", "ǱǱǱ".capitalize())
+    }
+
     @Test fun capitalizeLocale() {
         assertEquals("ABC", "ABC".capitalize(Locale.US))
         assertEquals("Abc", "Abc".capitalize(Locale.US))
