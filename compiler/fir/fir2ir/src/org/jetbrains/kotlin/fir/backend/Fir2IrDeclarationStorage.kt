@@ -28,7 +28,7 @@ import org.jetbrains.kotlin.fir.symbols.Fir2IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.ir.DescriptorBasedIr
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.*
@@ -47,7 +47,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
-@OptIn(DescriptorBasedIr::class)
+@OptIn(ObsoleteDescriptorBasedAPI::class)
 class Fir2IrDeclarationStorage(
     private val components: Fir2IrComponents,
     private val moduleDescriptor: FirModuleDescriptor,
