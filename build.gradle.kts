@@ -836,6 +836,11 @@ tasks {
                     info.exceptionFormat = debug.exceptionFormat
                 }
 
+                testTask.useJUnit()
+                println("Classpath: ${testTask.classpath.asPath}")
+                println("ClassFiles: " + testTask.candidateClassFiles.asPath)
+                println("ClassesDirs: " + testTask.testClassesDirs.asPath)
+                println("TestFramework: " + testTask.testFramework)
 
                 testTask.addTestListener(object : TestListener {
                     override fun afterSuite(desc: TestDescriptor, result: TestResult) {
