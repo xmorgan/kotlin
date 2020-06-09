@@ -20,8 +20,8 @@ import kotlin.jvm.internal.KTypeBase
  */
 @SinceKotlin("1.4")
 @ExperimentalStdlibApi
-@LowPriorityInOverloadResolution
-val KType.javaType: Type
+@LowPriorityInOverloadResolution // To make non-experimental kotlin.reflect.full.javaType always win in overload resolution
+public val KType.javaType: Type
     get() {
         if (this is KTypeBase) {
             // Use kotlin-reflect implementation for types which are position-dependent, e.g. "Unit" in a callable's return type.
