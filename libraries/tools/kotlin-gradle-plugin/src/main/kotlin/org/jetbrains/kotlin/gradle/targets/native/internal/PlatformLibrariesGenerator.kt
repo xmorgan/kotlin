@@ -73,9 +73,8 @@ internal class PlatformLibrariesGenerator(val project: Project, val konanTarget:
         val cacheDirectory = CacheBuilder.getRootCacheDirectory(
             File(project.konanHome), konanTarget, true, project.konanCacheKind
         )
-        val presentCacheFiles = cacheDirectory.listFiles().orEmpty().map { it.name }.toSet()
         return presentDefs.toPlatformLibNames().all {
-            CacheBuilder.getCacheFileName(it, project.konanCacheKind, konanTarget) in presentCacheFiles
+            cacheDirectory.resolve(CacheBuilder.getCacheFileName(it, project.konanCacheKind, konanTarget)).exists()
         }
     }
 
