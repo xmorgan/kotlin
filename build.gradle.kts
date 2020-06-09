@@ -807,7 +807,6 @@ tasks {
     }
 
     register("kmmTest") {
-        dependsOn("dist")
         doLast {
             val patterns = File("tests/kmm/kmm-tests.csv")
                 .readLines()
@@ -820,6 +819,46 @@ tasks {
                 patterns["exclude"]?.let { testTask.exclude(it) }
                 patterns["include"]?.let { testTask.include(it) }
                 testTask.filter { isFailOnNoMatchingTests = false }
+                testTask.testLogging {
+                    // set options for log level LIFECYCLE
+                    events("passed", "skipped", "failed", "standardOut")
+                    showExceptions = true
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    showCauses = true
+                    showStackTraces = true
+
+                    // set options for log level DEBUG and INFO
+                    debug {
+                        events("started", "passed", "skipped", "failed", "standardOut", "standardError")
+                        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    }
+                    info.events = debug.events
+                    info.exceptionFormat = debug.exceptionFormat
+                }
+
+
+                testTask.addTestListener(object : TestListener {
+                    override fun afterSuite(desc: TestDescriptor, result: TestResult) {
+                        if (desc.parent == null) { // will match the outermost suite
+                            val output =
+                                "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
+                            val startItem = "|  "
+                            val endItem = "  |"
+                            val repeatLength = startItem.length + output.length + endItem.length
+                            println(
+                                "\n" + ("-".repeat(repeatLength)) + "\n" + startItem + output + endItem + "\n" + ("-".repeat(
+                                    repeatLength
+                                ))
+                            )
+                        }
+                    }
+
+                    override fun beforeSuite(suite: TestDescriptor) {}
+                    override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {}
+                    override fun beforeTest(testDescriptor: TestDescriptor) {}
+                })
+                testTask.systemProperty("kotlin.gradle.version.for.tests", "6.0.1")
+                println("Execute: $testTask")
                 testTask.executeTests()
             }
             listOf(
