@@ -94,6 +94,9 @@
         <scriptDefinitionContributor id="ConsoleScriptDefinitionContributor"
                                      implementation="org.jetbrains.kotlin.console.ConsoleScriptDefinitionContributor"/>
 
+        <scriptDefinitionContributor id="ScriptDefinitionForExtensionRootsSource"
+                                     implementation="org.jetbrains.kotlin.jsr223.ScriptDefinitionForExtensionRootsSource"/>
+
         <scriptDefinitionsProvider id="MainKtsScriptDefinitionSource"
                                    implementation="org.jetbrains.kotlin.idea.script.MainKtsScriptDefinitionSource"/>
 
