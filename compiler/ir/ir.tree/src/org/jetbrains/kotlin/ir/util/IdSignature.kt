@@ -71,10 +71,10 @@ sealed class IdSignature {
                 return this
             }
 
-            val pathSegments = declarationFqName.split(".")
-            if (pathSegments.size == 1) return this
+            val nameSegments = nameSegments
+            if (nameSegments.size == 1) return this
 
-            return PublicSignature(packageFqName, pathSegments.first(), null, adaptMask(mask))
+            return PublicSignature(packageFqName, nameSegments.first(), null, adaptMask(mask))
         }
 
         override fun isPackageSignature(): Boolean = id == null && declarationFqName.isEmpty()
